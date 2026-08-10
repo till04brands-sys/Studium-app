@@ -1,0 +1,14 @@
+# Zugangsdaten — dürfen NIE ins Repository
+*-zugang.json
+*-token.json
+client_secret*.json
+.env
+
+# Der Vault gehört nicht hierher (persönliche Daten)
+vault/
+*.vault
+
+__pycache__/
+*.pyc
+.DS_Store
+.venv/

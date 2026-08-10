@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+html{background:#efebe4}
+body{margin:0;background:#efebe4;color:#17233a;font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#1b3358;text-decoration:none}
+a:hover{color:#7a4a23}
+button{font:inherit;color:inherit;cursor:pointer}
+@keyframes ovIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+</style>
+</helmet>
+
+<div style="min-height:100vh">
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;background:#20262e;padding:40px 20px;display:flex;flex-direction:column;align-items:center;gap:18px">
+  <div style="display:flex;align-items:center;gap:14px;color:#cfc7ba;font-size:12px;font-family:'IBM Plex Mono',monospace;letter-spacing:.06em">
+    <span>UNTERWEGS · NUR LESEN</span>
+    <button onClick="{{ goDesktop }}" style="background:#3a4450;border:1px solid #56626f;color:#efebe4;border-radius:6px;padding:5px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace">Zur Desktop-Ansicht</button>
+    <button onClick="{{ toggleMode }}" style="background:#3a4450;border:1px solid #56626f;color:#efebe4;border-radius:6px;padding:5px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace">{{ modeLabel }}</button>
+  </div>
+
+  <div style="width:390px;background:#f4f1ec;border:10px solid #11151a;border-radius:44px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.45)">
+    <div style="height:34px;background:#1b3358;display:flex;align-items:flex-end;justify-content:space-between;padding:0 22px 5px;color:#e8e2d8;font-size:11px;font-family:'IBM Plex Mono',monospace">
+      <span>9:41</span><span>Studium</span>
+    </div>
+
+    <div style="height:770px;overflow:auto;padding:16px 16px 28px">
+
+      <div style="background:#e6ddd0;border:1px solid #d6c9b6;border-radius:8px;padding:8px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:#6b5940;margin-bottom:14px">{{ mExportStand }}</div>
+
+      <div style="font-family:'Source Serif 4',Georgia,serif;font-size:24px;line-height:1.15;margin-bottom:2px">{{ blockName }}</div>
+      <div style="font-size:13px;color:#6f6a62;margin-bottom:14px">{{ blockWoche }} · {{ blockPhase }}</div>
+
+      <div style="background:#1b3358;color:#f4f1ec;border-radius:10px;padding:14px 16px;margin-bottom:14px">
+        <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;opacity:.7">BLOCKKLAUSUR</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px">
+          <span style="font-family:'Source Serif 4',Georgia,serif;font-size:38px;line-height:1">{{ klausurTage }}</span>
+          <span style="font-size:14px;opacity:.85">Tage</span>
+        </div>
+        <div style="font-size:12px;opacity:.8;margin-top:4px">{{ klausurSplit }}</div>
+      </div>
+
+      <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c;margin:16px 0 8px">DIESE WOCHE</div>
+      <sc-if value="{{ hasCal }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <sc-for list="{{ mDays }}" as="d" hint-placeholder-count="3">
+          <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:8px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;padding:7px 10px;background:#f7f3ec;border-bottom:1px solid #eae3d8;font-size:12px;font-weight:600">
+              <span>{{ d.name }}</span><span style="color:#8b857c;font-family:'IBM Plex Mono',monospace">{{ d.datum }}</span>
+            </div>
+            <sc-for list="{{ d.list }}" as="e" hint-placeholder-count="2">
+              <div style="display:flex;gap:10px;padding:8px 10px;border-bottom:1px solid #f2ece2;align-items:baseline">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6f6a62;min-width:78px">{{ e.zeit }}</span>
+                <span style="width:3px;align-self:stretch;border-radius:2px;background:{{ e.farbe }}"></span>
+                <span style="font-size:13px;flex:1;{{ e.strike }}">{{ e.titel }}</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{ d.leer }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:8px 10px;font-size:12px;color:#a09a90">keine Termine</div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+      <sc-if value="{{ noCal }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fffdf9;border:1px dashed #d6cfc3;border-radius:8px;padding:14px;font-size:13px;color:#6f6a62">Stundenplan fehlt — noch nichts importiert.</div>
+      </sc-if>
+
+      <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c;margin:18px 0 8px">HEUTE ZU TUN</div>
+      <sc-if value="{{ hasTodos }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:8px">
+        <sc-for list="{{ todos }}" as="t" hint-placeholder-count="3">
+          <div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid #f2ece2;align-items:baseline">
+            <span style="width:9px;height:9px;border-radius:50%;border:1px solid #b9b1a4;flex:none;transform:translateY(1px)"></span>
+            <span style="font-size:13px;flex:1">{{ t.titel }}</span>
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:{{ t.metaFarbe }}">{{ t.meta }}</span>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+      <sc-if value="{{ noTodos }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fffdf9;border:1px dashed #d6cfc3;border-radius:8px;padding:14px;font-size:13px;color:#6f6a62">Noch keine Aufgaben angelegt.</div>
+      </sc-if>
+
+      <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c;margin:18px 0 8px">FRISTEN</div>
+      <sc-if value="{{ hasFristen }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:8px">
+        <sc-for list="{{ mFristen }}" as="f" hint-placeholder-count="3">
+          <div style="display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid #f2ece2">
+            <span style="font-size:13px">{{ f.titel }}</span>
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:{{ f.farbe }};white-space:nowrap">{{ f.rest }}</span>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+      <sc-if value="{{ noFristen }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fffdf9;border:1px dashed #d6cfc3;border-radius:8px;padding:14px;font-size:13px;color:#6f6a62">Keine Fristen erfasst.</div>
+      </sc-if>
+
+      <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c;margin:18px 0 8px">ANKI FÄLLIG</div>
+      <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:8px;padding:12px">
+        <sc-if value="{{ ankiOk }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-family:'Source Serif 4',Georgia,serif;font-size:30px">{{ ankiTotal }}</span>
+            <span style="font-size:12px;color:#6f6a62">Karten über {{ ankiDecks }} Decks</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ ankiAus }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:13px;color:#8a5a1a">Anki läuft nicht — Stand unbekannt.</div>
+        </sc-if>
+      </div>
+
+      <div style="margin-top:22px;padding-top:12px;border-top:1px solid #ddd5c8;font-size:11px;font-family:'IBM Plex Mono',monospace;color:#a09a90;line-height:1.5">
+        Nur Lesen. Kein Abhaken, kein Anlegen.<br>{{ mExportStand }}
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+<div style="max-width:1520px;margin:0 auto;padding:0 22px 60px">
+
+  <div style="position:sticky;top:0;z-index:40;background:#efebe4;padding-top:14px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px 10px 0 0;border-bottom:none;padding:10px 16px">
+      <div style="display:flex;align-items:baseline;gap:9px">
+        <span style="width:11px;height:11px;background:#1b3358;border-radius:2px;display:inline-block"></span>
+        <span style="font-family:'Source Serif 4',Georgia,serif;font-size:17px;letter-spacing:-.01em">Studium</span>
+        <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#a09a90">HHU · Modellstudiengang</span>
+      </div>
+      <div style="display:flex;gap:2px;margin-left:6px">
+        <button onClick="{{ goHeute }}" style="{{ tabHeute }}">HEUTE</button>
+        <button onClick="{{ goBlock }}" style="{{ tabBlock }}">BLOCK</button>
+        <button onClick="{{ goOrga }}" style="{{ tabOrga }}">ORGA</button>
+        <button onClick="{{ goEingang }}" style="{{ tabEingang }}">EINGANG<span style="{{ eingangBadge }}">{{ eingangCount }}</span></button>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:8px;border:1px dashed #cfc7ba;border-radius:8px;padding:5px 8px">
+        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:#a09a90;letter-spacing:.08em">DEMO</span>
+        <button onClick="{{ setVoll }}" style="{{ segVoll }}">Gefüllt</button>
+        <button onClick="{{ setLeer }}" style="{{ segLeer }}">Leer</button>
+        <span style="width:1px;height:16px;background:#e2dcd2"></span>
+        <button onClick="{{ goMobile }}" style="border:1px solid #ddd5c8;background:#fffdf9;border-radius:5px;padding:3px 9px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:#6f6a62">iPhone</button>
+        <button onClick="{{ openSetup }}" style="border:1px solid #ddd5c8;background:#fffdf9;border-radius:5px;padding:3px 9px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:#6f6a62">Einrichtung</button>
+        <button onClick="{{ openSettings }}" style="border:1px solid #ddd5c8;background:#fffdf9;border-radius:5px;padding:3px 9px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:#6f6a62">Einstellungen</button>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:stretch;flex-wrap:wrap;background:#1b3358;color:#eae4d9;border-radius:0 0 10px 10px;padding:0 16px;box-shadow:0 6px 14px rgba(23,35,58,.10)">
+      <div style="padding:9px 18px 9px 0;display:flex;align-items:baseline;gap:10px">
+        <span style="font-family:'Source Serif 4',Georgia,serif;font-size:15px">{{ heuteDatum }}</span>
+      </div>
+      <div style="padding:9px 18px;border-left:1px solid rgba(234,228,217,.18);display:flex;align-items:baseline;gap:8px">
+        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;opacity:.6;letter-spacing:.08em">BLOCK</span>
+        <span style="font-size:13px">{{ blockTagXvonY }}</span>
+      </div>
+      <div style="padding:9px 18px;border-left:1px solid rgba(234,228,217,.18);display:flex;align-items:baseline;gap:8px">
+        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;opacity:.6;letter-spacing:.08em">KLAUSUR IN</span>
+        <span style="font-size:13px;font-weight:600">{{ klausurTageLabel }}</span>
+      </div>
+      <div style="padding:9px 18px;border-left:1px solid rgba(234,228,217,.18);display:flex;align-items:baseline;gap:8px;min-width:0">
+        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;opacity:.6;letter-spacing:.08em">NÄCHSTER</span>
+        <span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ nextTermin }}</span>
+      </div>
+      <div style="flex:1"></div>
+      <button onClick="{{ goEingang }}" style="{{ syncStyle }}">{{ syncText }}</button>
+    </div>
+  </div>
+
+  <sc-if value="{{ isHeute }}" hint-placeholder-val="{{ true }}">
+  <div style="margin-top:16px">
+
+    <sc-if value="{{ isLeer }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fffdf9;border:1px solid #d6cfc3;border-left:3px solid #7a4a23;border-radius:10px;padding:18px 20px;margin-bottom:16px">
+        <div style="font-family:'Source Serif 4',Georgia,serif;font-size:20px;margin-bottom:4px">Einrichtung — 6 Schritte, keiner braucht den amtlichen Stundenplan</div>
+        <div style="font-size:13px;color:#6f6a62;margin-bottom:14px;max-width:70ch">Solange nichts erfasst ist, zeigt die App keine Balken bei null, sondern diese Liste. Sie verschwindet, sobald alle Punkte erledigt sind.</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <sc-for list="{{ setupItems }}" as="s" hint-placeholder-count="6">
+            <div style="border:1px solid #e2dcd2;border-radius:8px;padding:11px 13px;background:#fdfaf5">
+              <div style="display:flex;gap:8px;align-items:baseline">
+                <span style="{{ s.dot }}"></span>
+                <span style="font-size:13px;font-weight:600">{{ s.titel }}</span>
+              </div>
+              <div style="font-size:12px;color:#6f6a62;margin-top:5px;line-height:1.45">{{ s.text }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(340px,1fr);gap:14px;align-items:start">
+
+      <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #eae3d8">
+          <span style="font-family:'Source Serif 4',Georgia,serif;font-size:16px">{{ kalTitel }}</span>
+          <div style="flex:1"></div>
+          <div style="display:flex;gap:2px;background:#f2ece2;border-radius:6px;padding:2px">
+            <button onClick="{{ setTag }}" style="{{ rgTag }}">Tag</button>
+            <button onClick="{{ setWoche }}" style="{{ rgWoche }}">Woche</button>
+            <button onClick="{{ setMonat }}" style="{{ rgMonat }}">Monat</button>
+          </div>
+          <button onClick="{{ toggleFilter }}" style="{{ filterStyle }}">Nur Studium</button>
+        </div>
+
+        <sc-if value="{{ zeigeRaster }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="display:grid;grid-template-columns:54px 1fr">
+            <div></div>
+            <div style="display:grid;grid-template-columns:{{ dayCols }};border-bottom:1px solid #eae3d8">
+              <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+                <div style="{{ d.headStyle }}">
+                  <span style="font-size:12px;font-weight:600">{{ d.name }}</span>
+                  <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#8b857c;margin-left:6px">{{ d.datum }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:54px 1fr;position:relative">
+            <div style="position:relative;height:812px;border-right:1px solid #eae3d8">
+              <sc-for list="{{ hours }}" as="h" hint-placeholder-count="14">
+                <div style="position:absolute;left:0;right:7px;text-align:right;font-size:10px;font-family:'IBM Plex Mono',monospace;color:#a09a90;top:{{ h.top }}px;transform:translateY(-5px)">{{ h.label }}</div>
+              </sc-for>
+            </div>
+            <div style="display:grid;grid-template-columns:{{ dayCols }};height:812px">
+              <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+                <div style="{{ d.colStyle }}">
+                  <sc-for list="{{ d.events }}" as="e" hint-placeholder-count="2">
+                    <div style="{{ e.style }}">
+                      <div style="{{ e.titelStyle }}">{{ e.titel }}</div>
+                      <div style="{{ e.metaStyle }}">{{ e.meta }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ zeigeMonat }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:12px 14px">
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+            <sc-for list="{{ monatCells }}" as="c" hint-placeholder-count="35">
+              <div style="{{ c.style }}">
+                <div style="display:flex;justify-content:space-between;align-items:baseline">
+                  <span style="{{ c.numStyle }}">{{ c.num }}</span>
+                  <sc-if value="{{ c.klausur }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;background:#a33526;color:#fff;border-radius:3px;padding:1px 4px">KL</span>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:2px;margin-top:5px">
+                  <sc-for list="{{ c.bars }}" as="b" hint-placeholder-count="2">
+                    <div style="height:4px;border-radius:2px;background:{{ b.farbe }}"></div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ noCal }}" hint-placeholder-val="{{ false }}">
+          <div style="height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:repeating-linear-gradient(#fffdf9 0 43px,#f4efe6 43px 44px)">
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:19px">Stundenplan fehlt</div>
+            <div style="font-size:13px;color:#6f6a62;max-width:46ch;text-align:center;line-height:1.5">Es ist nichts importiert — das heißt nicht „keine Termine“, sondern „nicht gemessen“.</div>
+            <button onClick="{{ openSetup }}" style="background:#1b3358;color:#f4f1ec;border:none;border-radius:6px;padding:8px 14px;font-size:13px">Stundenplan importieren</button>
+          </div>
+        </sc-if>
+
+        <div style="border-top:1px solid #eae3d8;background:#faf6ef">
+          <div style="display:flex;align-items:baseline;gap:10px;padding:9px 14px 4px">
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c">OHNE FESTE ZEIT</span>
+            <span style="font-size:12px;color:#a09a90">Online-Vorlesungen, nach Frist sortiert</span>
+          </div>
+          <sc-if value="{{ hasOffen }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:0 14px 12px">
+            <sc-for list="{{ ohneZeit }}" as="o" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #eee7dd">
+                <button onClick="{{ o.toggle }}" style="{{ o.boxStyle }}">{{ o.boxMark }}</button>
+                <span style="width:3px;height:16px;border-radius:2px;background:{{ o.farbe }}"></span>
+                <span style="font-size:13px;flex:1;{{ o.strike }}">{{ o.titel }}</span>
+                <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:{{ o.fristFarbe }}">{{ o.frist }}</span>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+          <sc-if value="{{ noOffen }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:4px 14px 14px;font-size:13px;color:#8b857c">Keine Online-Termine erfasst — unbekannt, nicht null.</div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+
+        <div style="background:#1b3358;color:#f0ebe1;border-radius:10px;padding:16px 18px">
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;opacity:.6">JETZT</div>
+          <sc-if value="{{ hasJetzt }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:23px;line-height:1.2;margin-top:6px">{{ jetztTitel }}</div>
+            <div style="display:flex;align-items:baseline;gap:14px;margin-top:8px;font-size:13px;opacity:.9">
+              <span style="font-family:'IBM Plex Mono',monospace">{{ jetztZeit }}</span>
+              <span>{{ jetztRaum }}</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:8px;margin-top:12px">
+              <span style="font-family:'Source Serif 4',Georgia,serif;font-size:32px;line-height:1">{{ jetztCountdown }}</span>
+              <span style="font-size:13px;opacity:.75">bis Beginn</span>
+            </div>
+            <sc-if value="{{ jetztPrep }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:12px;background:rgba(163,53,38,.22);border:1px solid rgba(226,150,130,.5);border-radius:7px;padding:9px 11px;font-size:12.5px;line-height:1.45">
+                Praktikum mit Vorbereitungspflicht — Testatfragen Situs noch nicht abgehakt.
+              </div>
+            </sc-if>
+          </div>
+          </sc-if>
+          <sc-if value="{{ noJetzt }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:8px;font-size:14px;opacity:.8;line-height:1.5">Kein Termin bekannt.<br><span style="font-size:12.5px;opacity:.75">Das heißt: nichts erfasst — nicht „nichts los“.</span></div>
+          </sc-if>
+        </div>
+
+        <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px">
+          <div style="display:flex;align-items:baseline;gap:8px;padding:11px 14px;border-bottom:1px solid #eae3d8">
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c">HEUTE ZU TUN</span>
+            <div style="flex:1"></div>
+            <span style="font-size:12px;color:#6f6a62;font-family:'IBM Plex Mono',monospace">{{ todoKopf }}</span>
+          </div>
+          <sc-if value="{{ hasTodos }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:4px 14px 10px">
+            <sc-for list="{{ todos }}" as="t" hint-placeholder-count="5">
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f2ece2">
+                <button onClick="{{ t.toggle }}" style="{{ t.boxStyle }}">{{ t.boxMark }}</button>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.35;{{ t.strike }}">{{ t.titel }}</div>
+                  <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#a09a90;margin-top:2px">{{ t.fach }}</div>
+                </div>
+                <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:{{ t.metaFarbe }};white-space:nowrap;padding-top:2px">{{ t.meta }}</span>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+          <sc-if value="{{ noTodos }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:16px 14px;font-size:13px;color:#6f6a62;line-height:1.5">Keine Aufgaben erfasst. Aufgaben entstehen aus Themen und Fristen — beides ist noch leer.</div>
+          </sc-if>
+        </div>
+
+        <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px">
+          <div style="display:flex;align-items:baseline;padding:11px 14px;border-bottom:1px solid #eae3d8">
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c">ANKI HEUTE</span>
+          </div>
+          <sc-if value="{{ ankiOk }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:12px 14px">
+            <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:10px">
+              <span style="font-family:'Source Serif 4',Georgia,serif;font-size:30px;line-height:1">{{ ankiTotal }}</span>
+              <span style="font-size:13px;color:#6f6a62">fällige Karten</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <sc-for list="{{ ankiRows }}" as="a" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="width:3px;height:13px;border-radius:2px;background:{{ a.farbe }}"></span>
+                  <span style="font-size:12.5px;flex:1">{{ a.fach }}</span>
+                  <span style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:#6f6a62">{{ a.n }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <button style="margin-top:12px;width:100%;background:#7a4a23;color:#faf6ef;border:none;border-radius:6px;padding:8px 0;font-size:13px">Anki öffnen</button>
+          </div>
+          </sc-if>
+          <sc-if value="{{ ankiAus }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px">
+            <div style="background:#f7efe0;border:1px solid #e3d3b4;border-radius:7px;padding:11px 12px">
+              <div style="font-size:13.5px;font-weight:600;color:#8a5a1a">Anki läuft nicht</div>
+              <div style="font-size:12.5px;color:#6f6a62;margin-top:4px;line-height:1.45">Keine Verbindung zu AnkiConnect. Fälligkeit ist <b>unbekannt</b> — ausdrücklich nicht „0 fällig“.</div>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+
+        <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px">
+          <div style="display:flex;align-items:baseline;gap:8px;padding:11px 14px;border-bottom:1px solid #eae3d8">
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c">IM BLICK</span>
+            <div style="flex:1"></div>
+            <span style="font-size:11px;color:#a09a90;font-family:'IBM Plex Mono',monospace">max. 3</span>
+          </div>
+          <sc-if value="{{ hasWatch }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:6px 14px 12px">
+            <sc-for list="{{ watch }}" as="w" hint-placeholder-count="3">
+              <div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid #f2ece2">
+                <span style="{{ w.tagStyle }}">{{ w.tag }}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;line-height:1.4">{{ w.text }}</div>
+                  <div style="font-size:11.5px;color:#8b857c;margin-top:3px;line-height:1.4">{{ w.folge }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+          <sc-if value="{{ noWatch }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:16px 14px;font-size:13px;color:#6f6a62;line-height:1.5">Nichts im Blick — es gibt noch keine Daten, aus denen sich eine Folge ableiten ließe.</div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px;padding:10px 12px">
+      <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px">
+        <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="8">
+          <button onClick="{{ t.open }}" style="text-align:left;background:#fdfaf5;border:1px solid #eae3d8;border-radius:8px;padding:9px 10px" style-hover="background:#f7f1e7;border-color:#d9d0c2">
+            <div style="display:flex;align-items:center;gap:7px">
+              <span style="width:3px;height:14px;border-radius:2px;background:{{ t.farbe }}"></span>
+              <span style="font-size:12px;font-family:'IBM Plex Mono',monospace;font-weight:500;letter-spacing:.04em">{{ t.kurz }}</span>
+              <div style="flex:1"></div>
+              <span style="{{ t.ampelStyle }}"></span>
+            </div>
+            <div style="display:flex;gap:2px;margin-top:8px">
+              <sc-for list="{{ t.stufen }}" as="s" hint-placeholder-count="5">
+                <span style="{{ s.style }}"></span>
+              </sc-for>
+            </div>
+            <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#8b857c;margin-top:7px">{{ t.takt }}</div>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isBlock }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-top:16px;display:flex;flex-direction:column;gap:14px">
+
+    <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px;padding:16px 18px">
+      <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+        <span style="font-family:'Source Serif 4',Georgia,serif;font-size:24px">{{ blockName }}</span>
+        <span style="font-size:13px;color:#6f6a62">{{ blockWoche }}</span>
+        <div style="flex:1"></div>
+        <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#8b857c;letter-spacing:.06em">PHASE</span>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:12px">
+        <sc-for list="{{ phasen }}" as="p" hint-placeholder-count="4">
+          <div style="{{ p.style }}">
+            <div style="font-size:12.5px;font-weight:600">{{ p.name }}</div>
+            <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;opacity:.75;margin-top:3px">{{ p.tage }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:14px">
+      <button onClick="{{ openKlausur }}" style="text-align:left;background:#1b3358;color:#f0ebe1;border:none;border-radius:10px;padding:18px 20px">
+        <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;opacity:.6">BLOCKKLAUSUR · ALLE ACHT FÄCHER</div>
+        <div style="display:flex;align-items:baseline;gap:14px;margin-top:8px">
+          <span style="font-family:'Source Serif 4',Georgia,serif;font-size:46px;line-height:1">{{ klausurTage }}</span>
+          <div>
+            <div style="font-size:14px">Tage · {{ klausurDatum }}</div>
+            <div style="font-size:12.5px;opacity:.75;margin-top:3px">{{ klausurSplit }}</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:12.5px;opacity:.8">Bestehen: ≥ 60 % hier <b>und</b> ≥ 60 % je Fach kumuliert über alle Blöcke</div>
+      </button>
+      <button onClick="{{ openKlausur }}" style="text-align:left;background:#fffdf9;border:1px solid #e2dcd2;border-left:3px solid #7c4a5e;border-radius:10px;padding:16px 18px">
+        <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c">EIGENER TERMIN</div>
+        <div style="font-family:'Source Serif 4',Georgia,serif;font-size:19px;margin-top:6px">Med. Terminologie</div>
+        <div style="display:flex;align-items:baseline;gap:9px;margin-top:8px">
+          <span style="font-family:'Source Serif 4',Georgia,serif;font-size:30px;line-height:1;color:#a33526">{{ terTage }}</span>
+          <span style="font-size:13px;color:#6f6a62">{{ terDatum }}</span>
+        </div>
+        <div style="font-size:12.5px;color:#6f6a62;margin-top:8px;line-height:1.45">Einziges Fach mit eigener Klausur — läuft nicht in der Blockklausur mit.</div>
+      </button>
+    </div>
+
+    <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px;padding:14px 16px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+        <span style="font-family:'Source Serif 4',Georgia,serif;font-size:18px">Landebahn</span>
+        <span style="font-size:12.5px;color:#6f6a62">Balkenlänge = <b>noch benötigte Lerntage</b>, nicht Fortschritt</span>
+      </div>
+
+      <sc-if value="{{ hasRunway }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="position:relative;padding-right:8px">
+          <div style="position:absolute;top:0;bottom:0;left:{{ examLine }}%;width:2px;background:#a33526;z-index:3"></div>
+          <div style="position:absolute;top:-4px;left:{{ examLine }}%;transform:translateX(-50%);font-size:10px;font-family:'IBM Plex Mono',monospace;color:#a33526;background:#fffdf9;padding:0 5px;z-index:4;white-space:nowrap">KLAUSUR</div>
+          <div style="height:16px"></div>
+          <sc-for list="{{ runway }}" as="r" hint-placeholder-count="8">
+            <div style="display:grid;grid-template-columns:150px 1fr 96px;align-items:center;gap:10px;padding:4px 0">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0">
+                <span style="width:3px;height:14px;border-radius:2px;background:{{ r.farbe }}"></span>
+                <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+              </div>
+              <div style="position:relative;height:18px;background:#f4efe6;border-radius:4px;overflow:hidden">
+                <div style="{{ r.barStyle }}"></div>
+              </div>
+              <div style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:{{ r.textFarbe }};text-align:right">{{ r.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:14px;background:#f7efe0;border:1px solid #e3d3b4;border-radius:8px;padding:13px 15px">
+          <div style="font-size:14.5px;line-height:1.5;max-width:90ch"><b>Zusammen {{ summeTage }} Lerntage benötigt, {{ klausurTage }} Tage bis zur Klausur.</b> {{ summeSatz }}</div>
+        </div>
+      </div>
+      </sc-if>
+      <sc-if value="{{ noRunway }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1px dashed #d6cfc3;border-radius:8px;padding:20px;text-align:center">
+          <div style="font-size:15px;font-family:'Source Serif 4',Georgia,serif">Stofflisten fehlen</div>
+          <div style="font-size:13px;color:#6f6a62;margin-top:6px;line-height:1.5;max-width:60ch;margin-left:auto;margin-right:auto">Ohne Themenzahl je Fach gibt es keinen Nenner — und ohne Nenner keinen Balken. Kein „0 Tage“, sondern: noch nicht gemessen.</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div>
+      <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c;margin-bottom:8px">ACHT FÄCHER IM BLOCK</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        <sc-for list="{{ fachKarten }}" as="f" hint-placeholder-count="8">
+          <button onClick="{{ f.open }}" style="text-align:left;background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px;padding:13px 14px" style-hover="border-color:#c9bfae">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:3px;height:15px;border-radius:2px;background:{{ f.farbe }}"></span>
+              <span style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.name }}</span>
+              <div style="flex:1"></div>
+              <span style="{{ f.ampelStyle }}"></span>
+            </div>
+            <div style="display:flex;gap:3px;margin-top:10px">
+              <sc-for list="{{ f.stufen }}" as="s" hint-placeholder-count="5">
+                <span style="{{ s.style }}"></span>
+              </sc-for>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:#6f6a62">
+              <span>{{ f.offenLabel }}</span><span>{{ f.taktLabel }}</span>
+            </div>
+            <div style="margin-top:7px;font-size:11.5px;color:{{ f.anwFarbe }}">{{ f.anwesenheit }}</div>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:14px">
+      <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <span style="font-family:'Source Serif 4',Georgia,serif;font-size:17px">Querverbindungen</span>
+          <span style="font-size:12.5px;color:#6f6a62">fächerübergreifend gestellt — überproportional wertvoll</span>
+        </div>
+        <sc-if value="{{ hasCross }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
+          <sc-for list="{{ cross }}" as="c" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fdfaf5;border:1px solid #eae3d8;border-radius:7px">
+              <span style="font-size:13px;flex:1">{{ c.titel }}</span>
+              <div style="display:flex;gap:4px">
+                <sc-for list="{{ c.faecher }}" as="x" hint-placeholder-count="3">
+                  <span style="{{ x.style }}">{{ x.kurz }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+        <sc-if value="{{ noCross }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:10px;font-size:13px;color:#6f6a62">Noch keine Themen erfasst — Querverbindungen entstehen erst daraus.</div>
+        </sc-if>
+      </div>
+
+      <div style="background:#f7f3ec;border:1px solid #e2dcd2;border-radius:10px;padding:14px 16px">
+        <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px">Ruhende Fächer</div>
+        <div style="font-size:12.5px;color:#6f6a62;margin-top:3px;line-height:1.45">Keine Lehre in diesem Block — werden trotzdem geprüft.</div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ ruhend }}" as="r" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;background:#fdfaf5;border:1px solid #eae3d8;border-radius:7px;opacity:.62">
+              <span style="width:3px;height:14px;border-radius:2px;background:{{ r.farbe }}"></span>
+              <span style="font-size:13px;flex:1">{{ r.name }}</span>
+              <span style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:#6f6a62">{{ r.stand }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isOrga }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-top:16px;display:flex;flex-direction:column;gap:14px">
+
+    <sc-if value="{{ hasStart }}" hint-placeholder-val="{{ true }}">
+    <div style="background:#fffdf9;border:1px solid #d6cfc3;border-left:3px solid #7a4a23;border-radius:10px;padding:15px 17px">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <span style="font-family:'Source Serif 4',Georgia,serif;font-size:18px">Studienstart</span>
+        <span style="font-size:12.5px;color:#6f6a62">einmalig · verschwindet, sobald alles abgehakt ist</span>
+        <div style="flex:1"></div>
+        <span style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:#6f6a62">{{ startStand }}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px">
+        <sc-for list="{{ startItems }}" as="s" hint-placeholder-count="6">
+          <div style="display:flex;gap:9px;align-items:baseline;padding:9px 11px;background:#fdfaf5;border:1px solid #eae3d8;border-radius:7px">
+            <span style="{{ s.dot }}"></span>
+            <span style="font-size:13px;{{ s.strike }}">{{ s.titel }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start">
+
+      <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px">
+        <div style="padding:12px 15px;border-bottom:1px solid #eae3d8">
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px">Fristen</div>
+          <div style="font-size:12px;color:#8b857c;margin-top:2px">haben ein Datum · nach Datum sortiert</div>
+        </div>
+        <sc-if value="{{ hasFristen }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:4px 15px 12px">
+          <sc-for list="{{ fristen }}" as="f" hint-placeholder-count="4">
+            <div style="padding:10px 0;border-bottom:1px solid #f2ece2">
+              <div style="display:flex;gap:10px;align-items:baseline">
+                <span style="font-size:13.5px;flex:1;line-height:1.35">{{ f.titel }}</span>
+                <span style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:{{ f.farbe }};white-space:nowrap">{{ f.rest }}</span>
+              </div>
+              <div style="font-size:11.5px;color:#8b857c;font-family:'IBM Plex Mono',monospace;margin-top:3px">{{ f.datum }}</div>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+        <sc-if value="{{ noFristen }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 15px;font-size:13px;color:#6f6a62;line-height:1.5">Keine Fristen erfasst. Die App erfindet keine — bekannt ist hier nichts, nicht null.</div>
+        </sc-if>
+      </div>
+
+      <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px">
+        <div style="padding:12px 15px;border-bottom:1px solid #eae3d8">
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px">Nachweise</div>
+          <div style="font-size:12px;color:#8b857c;margin-top:2px">Stand und Ziel · lange kein Datum</div>
+        </div>
+        <div style="padding:8px 15px 12px">
+          <sc-for list="{{ nachweise }}" as="n" hint-placeholder-count="3">
+            <div style="padding:11px 0;border-bottom:1px solid #f2ece2">
+              <div style="display:flex;gap:10px;align-items:baseline">
+                <span style="font-size:13.5px;flex:1">{{ n.titel }}</span>
+                <span style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:#17233a">{{ n.zaehlwerk }}</span>
+              </div>
+              <sc-if value="{{ n.hasBar }}" hint-placeholder-val="{{ true }}">
+                <div style="height:7px;background:#f0eae0;border-radius:4px;margin-top:8px;overflow:hidden">
+                  <div style="{{ n.barStyle }}"></div>
+                </div>
+              </sc-if>
+              <div style="font-size:11.5px;color:#6f6a62;margin-top:6px;line-height:1.45">{{ n.hilfe }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px">
+        <div style="padding:12px 15px;border-bottom:1px solid #eae3d8">
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px">Anmeldungen</div>
+          <div style="font-size:12px;color:#8b857c;margin-top:2px">haben ein Zeitfenster</div>
+        </div>
+        <div style="padding:8px 15px 12px">
+          <sc-for list="{{ anmeldungen }}" as="a" hint-placeholder-count="3">
+            <div style="{{ a.style }}">
+              <div style="display:flex;gap:10px;align-items:baseline">
+                <span style="font-size:13.5px;flex:1;line-height:1.35">{{ a.titel }}</span>
+                <span style="{{ a.chipStyle }}">{{ a.zustand }}</span>
+              </div>
+              <div style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:#8b857c;margin-top:5px">{{ a.fenster }}</div>
+              <sc-if value="{{ a.aktiv }}" hint-placeholder-val="{{ false }}">
+                <button style="margin-top:9px;background:#1b3358;color:#f4f1ec;border:none;border-radius:6px;padding:6px 12px;font-size:12.5px">Zur Anmeldung</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#f7f3ec;border:1px solid #e2dcd2;border-radius:10px;padding:15px 17px">
+      <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px;margin-bottom:9px">Die Regeln, die diese Seite erträglich halten</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+        <sc-for list="{{ regeln }}" as="r" hint-placeholder-count="5">
+          <div style="background:#fdfaf5;border:1px solid #eae3d8;border-radius:7px;padding:10px 12px">
+            <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#a09a90">{{ r.nr }}</div>
+            <div style="font-size:12.5px;line-height:1.45;margin-top:5px">{{ r.text }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isEingang }}" hint-placeholder-val="{{ false }}">
+  <div style="margin-top:16px;display:flex;flex-direction:column;gap:14px">
+
+    <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px;padding:15px 17px;display:flex;align-items:center;gap:14px">
+      <div style="flex:1">
+        <div style="font-family:'Source Serif 4',Georgia,serif;font-size:19px">Eingang</div>
+        <div style="font-size:13px;color:#6f6a62;margin-top:3px;line-height:1.45;max-width:80ch">Der einzige Ort, an dem die App Schreibrechte einlöst. Alles, was sie von sich aus erzeugt, wartet hier auf dein Ja.</div>
+      </div>
+      <div style="display:flex;gap:2px;background:#f2ece2;border-radius:6px;padding:2px">
+        <button onClick="{{ setDa }}" style="{{ segDa }}">Normal</button>
+        <button onClick="{{ setAway }}" style="{{ segAway }}">Nach 6 Tagen weg</button>
+      </div>
+    </div>
+
+    <sc-if value="{{ eingangAway }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px;padding:20px 22px">
+      <div style="font-family:'Source Serif 4',Georgia,serif;font-size:22px">Du warst 6 Tage weg. 62 Dinge sind aufgelaufen.</div>
+      <div style="font-size:13.5px;color:#6f6a62;margin-top:6px;max-width:80ch;line-height:1.5">Statt 62 Einzelentscheidungen: vier Stapel mit Sammelaktionen. Nichts davon ist passiert, solange du nicht zustimmst.</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px">
+        <sc-for list="{{ awayStapel }}" as="s" hint-placeholder-count="4">
+          <div style="background:#fdfaf5;border:1px solid #eae3d8;border-radius:9px;padding:14px">
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:32px;line-height:1">{{ s.n }}</div>
+            <div style="font-size:13px;font-weight:600;margin-top:5px">{{ s.titel }}</div>
+            <div style="font-size:12px;color:#6f6a62;margin-top:5px;line-height:1.45">{{ s.text }}</div>
+            <button style="{{ s.btnStyle }}">{{ s.btn }}</button>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ eingangNormal }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ inboxGruppen }}" as="g" hint-placeholder-count="4">
+        <div style="background:#fffdf9;border:1px solid #e2dcd2;border-radius:10px">
+          <div style="display:flex;align-items:baseline;gap:10px;padding:11px 15px;border-bottom:1px solid #eae3d8">
+            <span style="{{ g.dotStyle }}"></span>
+            <span style="font-size:14px;font-weight:600">{{ g.titel }}</span>
+            <span style="font-size:12px;color:#8b857c">{{ g.unter }}</span>
+            <div style="flex:1"></div>
+            <span style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:#8b857c">{{ g.n }}</span>
+          </div>
+          <div style="padding:4px 15px 10px">
+            <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="2">
+              <div style="display:flex;gap:14px;align-items:flex-start;padding:11px 0;border-bottom:1px solid #f2ece2">
+                <span style="{{ i.artStyle }}">{{ i.art }}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.4">{{ i.titel }}</div>
+                  <div style="font-size:12px;color:#6f6a62;margin-top:3px;line-height:1.45">{{ i.detail }}</div>
+                  <sc-if value="{{ i.konflikt }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px">
+                      <div style="background:#f7f3ec;border:1px solid #eae3d8;border-radius:6px;padding:8px 10px">
+                        <div style="font-size:10.5px;font-family:'IBM Plex Mono',monospace;color:#8b857c">HIER</div>
+                        <div style="font-size:12.5px;margin-top:3px">{{ i.links }}</div>
+                      </div>
+                      <div style="background:#f7f3ec;border:1px solid #eae3d8;border-radius:6px;padding:8px 10px">
+                        <div style="font-size:10.5px;font-family:'IBM Plex Mono',monospace;color:#8b857c">VAULT</div>
+                        <div style="font-size:12.5px;margin-top:3px">{{ i.rechts }}</div>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;gap:6px;flex:none">
+                  <button style="background:#1b3358;color:#f4f1ec;border:none;border-radius:6px;padding:5px 11px;font-size:12px">Übernehmen</button>
+                  <button style="background:#fffdf9;border:1px solid #ddd5c8;color:#6f6a62;border-radius:6px;padding:5px 11px;font-size:12px">Verwerfen</button>
+                  <button style="background:#fffdf9;border:1px solid #ddd5c8;color:#6f6a62;border-radius:6px;padding:5px 11px;font-size:12px">Später</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ eingangLeer }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fffdf9;border:1px dashed #d6cfc3;border-radius:10px;padding:40px;text-align:center">
+      <div style="font-family:'Source Serif 4',Georgia,serif;font-size:20px">Nichts im Eingang</div>
+      <div style="font-size:13.5px;color:#6f6a62;margin-top:7px;line-height:1.5;max-width:56ch;margin-left:auto;margin-right:auto">Es gibt noch keine Quelle, aus der Vorschläge entstehen könnten: kein Kalender verbunden, keine Vorlesungsdateien im Vault.</div>
+      <button onClick="{{ openSetup }}" style="margin-top:14px;background:#1b3358;color:#f4f1ec;border:none;border-radius:6px;padding:8px 15px;font-size:13px">Zur Einrichtung</button>
+    </div>
+    </sc-if>
+  </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ ovAny }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;inset:0;z-index:90;background:rgba(23,28,40,.42);backdrop-filter:blur(2px);display:flex;justify-content:center;overflow:auto;padding:30px 20px;animation:fadeIn .16s ease-out" onClick="{{ closeBackdrop }}">
+  <div style="{{ ovBoxStyle }}" onClick="{{ stop }}">
+
+    <div style="position:sticky;top:0;z-index:5;background:#fffdf9;border-bottom:1px solid #eae3d8;display:flex;align-items:center;gap:14px;padding:14px 20px">
+      <span style="{{ ovMarkStyle }}"></span>
+      <span style="font-family:'Source Serif 4',Georgia,serif;font-size:20px">{{ ovTitel }}</span>
+      <span style="font-size:12.5px;color:#8b857c">{{ ovUnter }}</span>
+      <div style="flex:1"></div>
+      <button onClick="{{ close }}" style="background:#f2ece2;border:1px solid #e2dcd2;border-radius:6px;padding:5px 11px;font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:#6f6a62">Esc · schließen</button>
+    </div>
+
+    <sc-if value="{{ ovFach }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:18px 20px 24px;display:flex;flex-direction:column;gap:14px">
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="{{ fachMarkeStyle }}">{{ fachMarke }}</span>
+        <span style="font-size:12.5px;color:#6f6a62">{{ fachKlausur }}</span>
+        <div style="flex:1"></div>
+        <span style="font-size:12.5px;color:{{ fachAnwFarbe }}">{{ fachAnwesenheit }}</span>
+      </div>
+
+      <sc-if value="{{ fachMehrblock }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#f7f3ec;border:1px solid #e2dcd2;border-radius:9px;padding:13px 15px">
+        <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c;margin-bottom:9px">ÜBER MEHRERE BLÖCKE · PUNKTEKONTO</div>
+        <div style="display:flex;gap:5px">
+          <sc-for list="{{ fachBloecke }}" as="b" hint-placeholder-count="5">
+            <div style="{{ b.style }}">
+              <div style="font-size:12px;font-weight:600">{{ b.name }}</div>
+              <div style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;margin-top:3px;opacity:.85">{{ b.wert }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:12.5px;color:#6f6a62;margin-top:9px">{{ fachKumuliert }}</div>
+      </div>
+      </sc-if>
+
+      <div style="display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:12px">
+        <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px;padding:13px 15px">
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c">STUFEN</div>
+          <sc-if value="{{ fachHatNenner }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:6px;margin-top:11px">
+            <sc-for list="{{ fachStufen }}" as="s" hint-placeholder-count="5">
+              <div style="flex:1">
+                <div style="{{ s.trackStyle }}">
+                  <div style="{{ s.fillStyle }}"></div>
+                </div>
+                <div style="font-size:11px;margin-top:6px;{{ s.labelStyle }}">{{ s.name }}</div>
+                <div style="font-size:12.5px;font-family:'IBM Plex Mono',monospace;color:#17233a;margin-top:1px">{{ s.wert }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:11.5px;color:#8b857c;margin-top:10px">Loci ist optional — ein übersprungenes Loci ist kein Rückstand.</div>
+          </sc-if>
+          <sc-if value="{{ fachKeinNenner }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:10px;font-size:13.5px;font-weight:600">Stoffliste fehlt</div>
+            <div style="font-size:12.5px;color:#6f6a62;margin-top:5px;line-height:1.45">Ohne Themenliste gibt es keinen Nenner. Hier steht deshalb kein Balken bei 0 %.</div>
+            <button style="margin-top:10px;background:#1b3358;color:#f4f1ec;border:none;border-radius:6px;padding:7px 12px;font-size:12.5px">Themen aus Vorlesungsdateien anlegen</button>
+          </sc-if>
+        </div>
+
+        <div style="{{ rueckBoxStyle }}">
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;opacity:.7">RÜCKSTAND</div>
+          <sc-if value="{{ fachHatNenner }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="display:flex;align-items:baseline;gap:8px;margin-top:9px">
+              <span style="font-family:'Source Serif 4',Georgia,serif;font-size:38px;line-height:1">{{ fachRueck }}</span>
+              <span style="font-size:12.5px;opacity:.85;line-height:1.35">Themen ohne<br>Notizen</span>
+            </div>
+            <div style="font-size:12.5px;opacity:.85;margin-top:9px;line-height:1.45">Ältestes offenes Thema: {{ fachAeltest }}</div>
+          </div>
+          </sc-if>
+          <sc-if value="{{ fachKeinNenner }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:10px;font-size:14px">unbekannt</div>
+            <div style="font-size:12.5px;opacity:.8;margin-top:5px;line-height:1.45">Nicht null — es ist nur nichts gemessen.</div>
+          </sc-if>
+        </div>
+
+        <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px;padding:13px 15px">
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c">TAKT</div>
+          <sc-if value="{{ fachHatNenner }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="display:flex;align-items:baseline;gap:8px;margin-top:9px">
+              <span style="{{ fachTaktStyle }}">{{ fachTakt }}</span>
+              <span style="font-size:12.5px;color:#6f6a62;line-height:1.35">Tage je<br>offenem Thema</span>
+            </div>
+            <div style="font-size:12.5px;color:#6f6a62;margin-top:9px;line-height:1.45">{{ fachTaktSatz }}</div>
+          </div>
+          </sc-if>
+          <sc-if value="{{ fachKeinNenner }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:10px;font-size:14px;color:#6f6a62">unbekannt</div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="{{ anschlussStyle }}">
+        <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c">{{ anschlussKopf }}</div>
+        <div style="font-size:13.5px;margin-top:6px;line-height:1.5;max-width:96ch">{{ anschlussText }}</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px;align-items:start">
+        <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px">
+          <div style="display:flex;align-items:baseline;gap:10px;padding:11px 14px;border-bottom:1px solid #eae3d8">
+            <span style="font-size:14px;font-weight:600">Themen</span>
+            <span style="font-size:12px;color:#8b857c">{{ fachThemenKopf }}</span>
+          </div>
+          <sc-if value="{{ fachHatNenner }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:2px 14px 10px">
+            <sc-for list="{{ fachThemen }}" as="t" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #f2ece2">
+                <span style="font-size:13px;flex:1;min-width:0">{{ t.titel }}</span>
+                <div style="display:flex;gap:3px">
+                  <sc-for list="{{ t.stufen }}" as="s" hint-placeholder-count="5">
+                    <span style="{{ s.style }}">{{ s.k }}</span>
+                  </sc-for>
+                </div>
+                <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:{{ t.farbe }};min-width:96px;text-align:right">{{ t.stand }}</span>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+          <sc-if value="{{ fachKeinNenner }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:16px 14px;font-size:13px;color:#6f6a62;line-height:1.5">Keine Themen erfasst.</div>
+          </sc-if>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px;padding:12px 14px">
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:7px">Material</div>
+            <sc-if value="{{ fachHatMaterial }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <sc-for list="{{ fachMaterial }}" as="m" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:#8b857c;background:#f2ece2;border-radius:3px;padding:1px 5px">{{ m.typ }}</span>
+                  <span style="font-size:12.5px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</span>
+                  <span style="font-size:11px;color:#8b857c">im Finder</span>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+            <sc-if value="{{ fachKeinMaterial }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12.5px;color:#6f6a62">Keine Dateien im Vault-Ordner gefunden.</div>
+            </sc-if>
+          </div>
+
+          <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px;padding:12px 14px">
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:7px">Anki-Deck</div>
+            <sc-if value="{{ ankiOk }}" hint-placeholder-val="{{ true }}">
+              <div style="font-size:12.5px;color:#6f6a62;line-height:1.55">{{ fachAnkiDeck }}<br>{{ fachAnkiZahlen }}</div>
+            </sc-if>
+            <sc-if value="{{ ankiAus }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12.5px;color:#8a5a1a">Anki läuft nicht — Kartenzahlen unbekannt.</div>
+            </sc-if>
+          </div>
+
+          <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px;padding:12px 14px">
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:6px">Anwesenheitsregel</div>
+            <div style="font-size:12.5px;color:#6f6a62;line-height:1.5">{{ fachAnwRegel }}</div>
+          </div>
+
+          <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px;padding:12px 14px">
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:7px">Verweise</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ fachLinks }}" as="l" hint-placeholder-count="3">
+                <span style="font-size:12px;background:#f2ece2;border:1px solid #e6dfd3;border-radius:5px;padding:3px 8px;color:#1b3358">{{ l.name }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:5px;flex-wrap:wrap;padding-top:2px">
+        <sc-for list="{{ fachSwitch }}" as="f" hint-placeholder-count="8">
+          <button onClick="{{ f.open }}" style="{{ f.style }}">{{ f.kurz }}</button>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ ovKlausur }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:18px 20px 24px;display:flex;flex-direction:column;gap:14px">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div style="background:#1b3358;color:#f0ebe1;border-radius:9px;padding:15px 17px">
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;opacity:.6">GESAMT</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:7px">
+            <span style="font-family:'Source Serif 4',Georgia,serif;font-size:40px;line-height:1">{{ klausurTage }}</span>
+            <span style="font-size:13px;opacity:.85">Tage</span>
+          </div>
+          <div style="font-size:12.5px;opacity:.8;margin-top:6px">{{ klausurDatum }}</div>
+        </div>
+        <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px;padding:15px 17px">
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c">DAVON LEHRBETRIEB</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:7px">
+            <span style="font-family:'Source Serif 4',Georgia,serif;font-size:40px;line-height:1">{{ lehrTage }}</span>
+            <span style="font-size:13px;color:#6f6a62">Tage</span>
+          </div>
+          <div style="font-size:12.5px;color:#6f6a62;margin-top:6px;line-height:1.4">mit Vorlesungen, Seminaren, Praktika</div>
+        </div>
+        <div style="background:#f7efe0;border:1px solid #e3d3b4;border-radius:9px;padding:15px 17px">
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8a5a1a">ENDSPURT · NUR LERNEN</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:7px">
+            <span style="font-family:'Source Serif 4',Georgia,serif;font-size:40px;line-height:1;color:#8a5a1a">{{ endspurtTage }}</span>
+            <span style="font-size:13px;color:#6f6a62">Tage</span>
+          </div>
+          <div style="font-size:12.5px;color:#6f6a62;margin-top:6px;line-height:1.4">Das ist die ehrliche Zahl, nicht die {{ klausurTage }}.</div>
+        </div>
+      </div>
+
+      <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px;padding:13px 15px">
+        <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;color:#8b857c;margin-bottom:10px">FÄCHER NACH DRINGLICHKEIT</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <sc-for list="{{ klausurFaecher }}" as="f" hint-placeholder-count="8">
+            <button onClick="{{ f.open }}" style="{{ f.style }}">
+              <span style="font-size:12.5px;font-weight:600">{{ f.kurz }}</span>
+              <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;opacity:.85;margin-left:7px">{{ f.wert }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background:#f7f3ec;border:1px solid #e2dcd2;border-left:3px solid #a33526;border-radius:9px;padding:14px 16px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px">Bestehensregel</div>
+        <div style="font-size:13.5px;line-height:1.55;max-width:96ch">Mindestens <b>60 % in dieser Klausur</b> — und mindestens <b>60 % je Fach kumuliert über alle Blöcke</b>. Der zweite Teil ist der, den man übersieht: ein Fach kann in dieser Klausur reichen und trotzdem kumuliert durchfallen.</div>
+        <div style="font-size:12.5px;color:#6f6a62;margin-top:9px;font-family:'IBM Plex Mono',monospace">Versuch 1 von 3</div>
+      </div>
+
+      <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px">
+        <div style="display:flex;align-items:baseline;gap:10px;padding:11px 14px;border-bottom:1px solid #eae3d8">
+          <span style="font-size:14px;font-weight:600">Was bis dahin fehlt</span>
+          <span style="font-size:12px;color:#8b857c">über alle Fächer · gedeckelt auf 6 Zeilen</span>
+        </div>
+        <sc-if value="{{ hasFehlt }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:2px 14px 10px">
+          <sc-for list="{{ fehltListe }}" as="x" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid #f2ece2">
+              <span style="width:3px;height:15px;border-radius:2px;background:{{ x.farbe }}"></span>
+              <span style="font-size:13px;flex:1">{{ x.titel }}</span>
+              <span style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:#6f6a62">{{ x.wert }}</span>
+            </div>
+          </sc-for>
+          <div style="font-size:12px;color:#8b857c;padding-top:9px">{{ fehltRest }}</div>
+        </div>
+        </sc-if>
+        <sc-if value="{{ noFehlt }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 14px;font-size:13px;color:#6f6a62;line-height:1.5">Ohne Stofflisten lässt sich nicht sagen, was fehlt. Unbekannt — nicht „nichts“.</div>
+        </sc-if>
+      </div>
+
+      <div style="background:#fdfaf5;border:1px solid #e2dcd2;border-radius:9px;padding:13px 15px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:10px">Nachlauf</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <sc-for list="{{ nachlauf }}" as="n" hint-placeholder-count="3">
+            <div style="background:#fffdf9;border:1px solid #eae3d8;border-radius:7px;padding:11px 13px">
+              <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#8b857c">{{ n.datum }}</div>
+              <div style="font-size:13px;margin-top:4px;line-height:1.4">{{ n.titel }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:12px;background:#a33526;color:#fdf3f0;border-radius:8px;padding:14px 16px">
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;opacity:.8">EINSPRUCHSFRIST</div>
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:22px;margin-top:5px">Zwei Werktage nach Einsicht — danach unwiderruflich</div>
+          <div style="font-size:13px;opacity:.9;margin-top:6px;line-height:1.5;max-width:90ch">Diese Frist ist weg, bevor man merkt, dass es sie gab. Sie wird ab dem Einsichtstermin als eigener Countdown in „Im Blick“ geführt und verdrängt dort alles andere.</div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ ovSetup }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:18px 20px 24px">
+      <div style="font-size:13.5px;color:#6f6a62;line-height:1.55;max-width:90ch;margin-bottom:14px">Am ersten Tag ist alles leer. Diese Liste führt auch ohne den amtlichen Stundenplan zu Daten — und verschwindet, sobald sie abgearbeitet ist.</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ setupLang }}" as="s" hint-placeholder-count="6">
+          <div style="display:flex;gap:13px;align-items:flex-start;background:#fdfaf5;border:1px solid #e2dcd2;border-radius:8px;padding:13px 15px">
+            <span style="{{ s.dot }}"></span>
+            <div style="flex:1">
+              <div style="font-size:13.5px;font-weight:600">{{ s.titel }}</div>
+              <div style="font-size:12.5px;color:#6f6a62;margin-top:4px;line-height:1.5">{{ s.text }}</div>
+            </div>
+            <button style="{{ s.btnStyle }}">{{ s.btn }}</button>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ ovSettings }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:18px 20px 24px;display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ settings }}" as="s" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:center;padding:11px 0;border-bottom:1px solid #f2ece2">
+          <div>
+            <div style="font-size:13.5px;font-weight:600">{{ s.name }}</div>
+            <div style="font-size:12px;color:#8b857c;margin-top:2px">{{ s.hinweis }}</div>
+          </div>
+          <div style="{{ s.wertStyle }}">{{ s.wert }}</div>
+        </div>
+      </sc-for>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;padding-top:6px">
+        <sc-for list="{{ fachFarben }}" as="f" hint-placeholder-count="8">
+          <div style="display:flex;align-items:center;gap:7px;border:1px solid #e2dcd2;border-radius:6px;padding:5px 9px;background:#fdfaf5">
+            <span style="width:12px;height:12px;border-radius:3px;background:{{ f.farbe }}"></span>
+            <span style="font-size:12px;font-family:'IBM Plex Mono',monospace">{{ f.kurz }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;privatOpacity&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.5,&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;step&quot;:0.05,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Kalender&quot;,&quot;unit&quot;:&quot;&quot;},&quot;zeigeWochenende&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Kalender&quot;},&quot;akzent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7a4a23&quot;,&quot;options&quot;:[&quot;#7a4a23&quot;,&quot;#1b3358&quot;,&quot;#8a5a3b&quot;,&quot;#55622f&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Farben&quot;}}">
+class Component extends DCLogic {
+  state = { page:'heute', mode:'voll', view:'desktop', overlay:null, subj:'bch', range:'woche', filter:'alle', away:false, done:{t2:true}, seen:{o3:true} };
+
+  componentDidMount(){
+    this._key = (e)=>{ if(e.key==='Escape' && this.state.overlay){ e.preventDefault(); this.close(); } };
+    window.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount(){ window.removeEventListener('keydown', this._key); }
+
+  open(name, subj){ this._scroll = window.scrollY; this.setState({ overlay:name, subj: subj || this.state.subj }); }
+  close(){ const y = this._scroll || 0; this.setState({ overlay:null }, ()=>{ requestAnimationFrame(()=>window.scrollTo(0,y)); }); }
+
+  SUBJ(){ return [
+    {id:'ana',k:'ANA',n:'Anatomie',c:'#1b3358'},
+    {id:'bch',k:'BCH',n:'Biochemie',c:'#2c5b58'},
+    {id:'phy',k:'PHY',n:'Physiologie',c:'#55622f'},
+    {id:'bio',k:'BIO',n:'Biologie',c:'#35673f'},
+    {id:'che',k:'CHE',n:'Chemie',c:'#8a4b2a'},
+    {id:'phk',k:'PHK',n:'Physik',c:'#a07a2c'},
+    {id:'mps',k:'MPS',n:'Med. Psych. & Soz.',c:'#574a7d'},
+    {id:'ter',k:'TER',n:'Med. Terminologie',c:'#7c4a5e'}
+  ]; }
+
+  DET(){ return {
+    ana:{themen:22,st:[19,17,12,5,11],offen:5,rueck:2,aeltest:'„Gefäße obere Extremität“ · 6 Tage',needed:6,fehl:[1,4],neuland:false,anki:[64,410],
+      anschluss:'Aus deiner Physiotherapie-Ausbildung liegt vor: Bewegungsapparat, Palpation, Gelenkmechanik, Muskelfunktionen. Erwartungsgemäß neu sind Situs, Gefäß- und Nervenverläufe in der Tiefe sowie Histologie-Bezüge.',
+      mehrblock:true},
+    bch:{themen:26,st:[14,9,4,1,6],offen:17,rueck:8,aeltest:'„Enzymkinetik“ · 16 Tage',needed:18,fehl:[0,4],neuland:true,anki:[52,180],
+      anschluss:'Neuland. Kein Vorwissen aus der Ausbildung — das ist die Erwartung, kein Rückstand. Rechne mit längerer Anlaufzeit je Thema als in Anatomie.'},
+    phy:{themen:20,st:[15,12,8,3,7],offen:8,rueck:3,aeltest:'„Membranpotenzial“ · 9 Tage',needed:9,fehl:[2,4],neuland:false,anki:[38,240],
+      anschluss:'Teilweiser Anschluss: Muskelphysiologie und Belastungsreaktion sind aus der Ausbildung vertraut. Neu: Zellphysiologie, Niere, Säure-Basen-Regulation.'},
+    bio:{themen:14,st:[12,11,7,2,8],offen:3,rueck:0,aeltest:'kein offenes Thema älter als 3 Tage',needed:5,fehl:[1,4],neuland:true,anki:[21,150],
+      anschluss:'Neuland, aber kleiner Umfang. Läuft bisher mit.'},
+    che:{themen:24,st:[13,10,5,0,5],offen:14,rueck:6,aeltest:'„Puffersysteme“ · 12 Tage',needed:12,fehl:[2,4],neuland:true,anki:[27,130],
+      anschluss:'Neuland. Schulchemie liegt lange zurück — die ersten Themen kosten überproportional viel Zeit.'},
+    phk:{themen:26,st:[9,5,2,0,3],offen:21,rueck:11,aeltest:'„Optik“ · 24 Tage',needed:38,fehl:[4,4],neuland:true,anki:[12,70],
+      anschluss:'Neuland und der größte Rückstand. Zusätzlich ist hier das Fehltage-Budget aufgebraucht — das ist die härtere Frage als der Stoff.'},
+    mps:{themen:12,st:[11,10,6,4,7],offen:2,rueck:0,aeltest:'kein offenes Thema',needed:4,fehl:[1,4],neuland:false,anki:[18,120],
+      anschluss:'Anschluss: Kommunikation, Compliance und Schmerzmodelle sind aus der Ausbildung bekannt. Neu ist die Statistik.'},
+    ter:{themen:10,st:[10,9,7,3,9],offen:1,rueck:0,aeltest:'kein offenes Thema',needed:4,fehl:[0,4],neuland:false,anki:[9,320],
+      anschluss:'Anschluss: medizinische Fachsprache ist aus der Ausbildung vertraut. Eigener Klausurtermin — läuft nicht in der Blockklausur mit.'}
+  }; }
+
+  EV(){ return [
+    {d:0,s:480,e:570,t:'VL Biochemie 05 · Enzyme',r:'HS 3A',f:'bch'},
+    {d:0,s:600,e:690,t:'Seminar Anatomie · Obere Extremität',r:'S 1.12',f:'ana'},
+    {d:0,s:1080,e:1140,t:'Krafttraining',r:'',p:true},
+    {d:1,s:540,e:630,t:'VL Physik 05 · Mechanik',r:'HS 2',f:'phk'},
+    {d:1,s:660,e:750,t:'VL Chemie 06 · Säure/Base',r:'HS 3A',f:'che'},
+    {d:1,s:960,e:1005,t:'Zahnarzt',r:'',p:true},
+    {d:2,s:540,e:630,t:'VL Med. Psychologie 03',r:'HS 1',f:'mps'},
+    {d:2,s:780,e:960,t:'Praktikum Biologie · Mikroskopie',r:'L 0.04',f:'bio'},
+    {d:2,s:1170,e:1260,t:'Abendessen mit L.',r:'',p:true},
+    {d:3,s:480,e:570,t:'VL Terminologie 06',r:'HS 1',f:'ter',cancel:true},
+    {d:3,s:600,e:690,t:'Seminar Physiologie · Muskel',r:'S 2.04',f:'phy'},
+    {d:3,s:840,e:1020,t:'Praktikum Anatomie · Situs',r:'S 03',f:'ana'},
+    {d:3,s:1110,e:1170,t:'Lauftraining',r:'',p:true},
+    {d:4,s:540,e:660,t:'Klausur Med. Terminologie',r:'HS 3A',f:'ter',exam:true},
+    {d:4,s:720,e:780,t:'Testat Anatomie',r:'S 1.12',f:'ana',guess:true},
+    {d:4,s:900,e:990,t:'Tutorium Chemie',r:'S 0.11',f:'che'},
+    {d:5,s:660,e:780,t:'Brunch mit M.',r:'',p:true}
+  ]; }
+
+  col(id){ const s = this.SUBJ().find(x=>x.id===id); return s ? s.c : '#8b857c'; }
+  name(id){ const s = this.SUBJ().find(x=>x.id===id); return s ? s.n : ''; }
+  kurz(id){ const s = this.SUBJ().find(x=>x.id===id); return s ? s.k : ''; }
+
+  ampel(offen){ const t = 36/Math.max(offen,1); return t>=3 ? '#3f6b47' : (t>=1.8 ? '#a8761f' : '#a33526'); }
+
+  seg(active){ return 'border:none;border-radius:5px;padding:4px 10px;font-size:12px;background:'+(active?'#1b3358':'transparent')+';color:'+(active?'#f4f1ec':'#6f6a62'); }
+  tab(active){ return 'border:none;background:transparent;padding:7px 13px;border-radius:7px;font-size:12.5px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:.07em;position:relative;'+(active?'background:#eee7dd;color:#17233a;font-weight:500':'color:#8b857c'); }
+
+  renderVals(){
+    const st = this.state, voll = st.mode==='voll', leer = !voll;
+    const SUBJ = this.SUBJ(), DET = this.DET();
+    const priv = this.props.privatOpacity ?? 0.5;
+    const wochenende = this.props.zeigeWochenende ?? true;
+    const akzent = this.props.akzent ?? '#7a4a23';
+
+    const klausurTage = 36, lehrTage = 29, endspurtTage = 7;
+
+    // ---- Kalender
+    const dayNames = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+    const dayDates = ['09.11.','10.11.','11.11.','12.11.','13.11.','14.11.','15.11.'];
+    const heuteIdx = 3;
+    let idxs = [0,1,2,3,4,5,6];
+    if(!wochenende) idxs = [0,1,2,3,4];
+    if(st.range==='tag') idxs = [heuteIdx];
+    const H = 812, MIN0 = 420, SPAN = 840;
+
+    const evAll = voll ? this.EV() : [];
+    const days = idxs.map(i=>{
+      const list = evAll.filter(e=>e.d===i).filter(e=> st.filter==='studium' ? !e.p : true);
+      const events = list.map(e=>{
+        const top = (e.s-MIN0)/SPAN*H, h = Math.max((e.e-e.s)/SPAN*H-3, 24);
+        const c = e.f ? this.col(e.f) : '#8b857c';
+        const lines = h>=104 ? 3 : (h>=72 ? 2 : 1);
+        let s = 'position:absolute;left:3px;right:3px;top:'+top.toFixed(1)+'px;height:'+h.toFixed(1)+'px;border-radius:6px;padding:5px 7px;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;gap:2px;';
+        if(e.p){ s += 'background:rgba(255,253,249,.75);border:1px dashed #cfc7ba;color:#8b857c;opacity:'+priv+';z-index:1;'; }
+        else if(e.exam){ s += 'background:#a33526;color:#fdf3f0;border:2px solid #6d2018;box-shadow:0 3px 10px rgba(163,53,38,.3);z-index:6;'; }
+        else if(e.cancel){ s += 'background:'+c+'14;border:1px solid #ddd5c8;color:#a09a90;z-index:2;'; }
+        else if(e.guess){ s += 'background-color:'+c+'1a;background-image:repeating-linear-gradient(45deg,transparent 0 5px,'+c+'22 5px 10px);border:1px dashed '+c+';color:'+c+';z-index:3;'; }
+        else { s += 'background:'+c+';color:#f7f3ec;z-index:4;'; }
+        return {
+          style:s,
+          titel:e.t,
+          titelStyle:'font-size:11.5px;font-weight:600;line-height:1.22;flex:none;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:'+lines+';'+(e.cancel?'text-decoration:line-through;':''),
+          meta:(e.cancel?'entfällt · ':'')+(e.guess?'geschätzt · ':'')+this.fmt(e.s)+'–'+this.fmt(e.e)+(e.r?' · '+e.r:''),
+          metaStyle:'font-size:10px;font-family:\'IBM Plex Mono\',monospace;opacity:.85;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
+        };
+      });
+      return {
+        name: st.range==='tag' ? dayNames[i] : dayNames[i].slice(0,2),
+        datum: dayDates[i],
+        headStyle:'padding:8px 10px;'+(i===heuteIdx?'background:#f2ece2;':'')+(i<6?'border-right:1px solid #eae3d8;':''),
+        colStyle:'position:relative;border-right:1px solid #eae3d8;background:'+(i===heuteIdx?'repeating-linear-gradient(#faf6ef 0 43px,#eee7dd 43px 44px)':'repeating-linear-gradient(#fffdf9 0 43px,#f2ece2 43px 44px)'),
+        events
+      };
+    });
+
+    const hours = [];
+    for(let h=7;h<=21;h++) hours.push({label:(h<10?'0':'')+h+':00', top:((h*60-MIN0)/SPAN*H).toFixed(1)});
+
+    const monatCells = [];
+    for(let i=0;i<35;i++){
+      const num = i-2;
+      const inMonth = num>=1 && num<=30;
+      const isHeute = num===12;
+      const klausur = num===13;
+      const bars = inMonth && voll && num>=9 && num<=13 ? [{farbe:'#1b3358'},{farbe:'#2c5b58'}] : (inMonth && voll && num%3===0 ? [{farbe:'#a07a2c'}] : []);
+      monatCells.push({
+        num: inMonth ? String(num) : '',
+        klausur: klausur && voll,
+        style:'min-height:62px;border:1px solid '+(isHeute?'#1b3358':'#eae3d8')+';border-radius:6px;padding:6px 7px;background:'+(inMonth?'#fdfaf5':'#f4f1ec'),
+        numStyle:'font-size:11.5px;font-family:\'IBM Plex Mono\',monospace;color:'+(isHeute?'#1b3358':'#8b857c')+';font-weight:'+(isHeute?'600':'400'),
+        bars
+      });
+    }
+
+    const ohneRaw = voll ? [
+      {id:'o1',f:'bch',titel:'Biochemie 07 · Enzymkinetik (online)',frist:'Frist heute',farbe:'#8a5a1a'},
+      {id:'o4',f:'phk',titel:'Physik 06 · Optik (online)',frist:'überfällig seit 2 Tagen',farbe:'#a33526'},
+      {id:'o2',f:'bio',titel:'Biologie 05 · Zellzyklus (online)',frist:'in 2 Tagen',farbe:'#6f6a62'},
+      {id:'o3',f:'mps',titel:'Med. Psychologie 03 · Lernpsychologie (online)',frist:'in 5 Tagen',farbe:'#6f6a62'}
+    ] : [];
+    const ohneZeit = ohneRaw.map(o=>{
+      const on = !!st.seen[o.id];
+      return { titel:o.titel, farbe:this.col(o.f), frist:o.frist, fristFarbe:on?'#a09a90':o.farbe,
+        strike: on ? 'color:#a09a90;text-decoration:line-through' : '',
+        boxMark: on ? '✓' : '',
+        boxStyle:'width:17px;height:17px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;flex:none;'+(on?'background:#3f6b47;border:1px solid #3f6b47;color:#fdfaf5':'background:#fffdf9;border:1px solid #c9bfae;color:transparent'),
+        toggle: ()=>this.setState(s=>({seen:Object.assign({},s.seen,{[o.id]:!s.seen[o.id]})}))
+      };
+    });
+
+    // ---- Todos
+    const todoRaw = voll ? [
+      {id:'t1',titel:'Testatfragen Situs durcharbeiten',fach:'Anatomie · Vorbereitungspflicht',meta:'überfällig · 1 Tag',rot:true},
+      {id:'t2',titel:'Protokoll Mikroskopie fertigstellen',fach:'Biologie',meta:'überfällig · 3 Tage',rot:true},
+      {id:'t3',titel:'Notizen Enzymkinetik anlegen',fach:'Biochemie · 45 min',meta:'heute',rot:false},
+      {id:'t4',titel:'Feynman: Membranpotenzial erklären',fach:'Physiologie · 25 min',meta:'heute',rot:false},
+      {id:'t5',titel:'Anki-Karten aus VL Chemie 06',fach:'Chemie · 20 min',meta:'heute',rot:false}
+    ] : [];
+    const todos = todoRaw.map(t=>{
+      const on = !!st.done[t.id];
+      return { titel:t.titel, fach:t.fach, meta:t.meta, metaFarbe: on ? '#a09a90' : (t.rot?'#a33526':'#6f6a62'),
+        strike: on ? 'color:#a09a90;text-decoration:line-through' : '',
+        boxMark: on ? '✓' : '',
+        boxStyle:'width:17px;height:17px;border-radius:4px;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;flex:none;'+(on?'background:#3f6b47;border:1px solid #3f6b47;color:#fdfaf5':'background:#fffdf9;border:1px solid #c9bfae;color:transparent'),
+        toggle: ()=>this.setState(s=>({done:Object.assign({},s.done,{[t.id]:!s.done[t.id]})}))
+      };
+    });
+    const offenN = todoRaw.filter(t=>!st.done[t.id]).length;
+
+    // ---- Anki
+    const ankiRows = SUBJ.slice(0,5).map(s=>({fach:s.n, farbe:s.c, n:String(DET[s.id].anki[0])}));
+    const ankiTotal = SUBJ.reduce((a,s)=>a+DET[s.id].anki[0],0);
+
+    // ---- Im Blick
+    const watch = voll ? [
+      {tag:'ZULASSUNG',ton:'#a33526',text:'Physik — 4 von 4 Fehltagen verbraucht.',folge:'Ein weiterer Fehltag heißt: keine Zulassung zur Blockklausur.'},
+      {tag:'FRIST',ton:'#8a5a1a',text:'Anmeldung Blockklausur schließt in 3 Tagen.',folge:'Ohne Anmeldung kein Klausurplatz — nachträglich nicht möglich.'},
+      {tag:'STOFF',ton:'#6f6a62',text:'Biochemie — ältestes offenes Thema seit 16 Tagen.',folge:'Nachholbar, aber der Abstand wächst seit zwei Wochen.'}
+    ] : [];
+
+    // ---- Kacheln
+    const tiles = SUBJ.map(s=>{
+      const d = DET[s.id];
+      const stufen = voll ? d.st.map((n,i)=>{
+        const pct = Math.round(n/d.themen*100);
+        return {style:'flex:1;height:5px;border-radius:2px;background:linear-gradient(to right,'+s.c+' '+pct+'%,#eee7dd '+pct+'%);'+(i===3?'opacity:.55;':'')};
+      }) : [1,2,3,4,5].map(()=>({style:'flex:1;height:5px;border-radius:2px;background:repeating-linear-gradient(45deg,#eee7dd 0 3px,#f7f3ec 3px 6px)'}));
+      return { kurz:s.k, farbe:s.c,
+        ampelStyle:'width:7px;height:7px;border-radius:50%;background:'+(voll?this.ampel(d.offen):'#d6cfc3'),
+        stufen,
+        takt: voll ? (36/Math.max(d.offen,1)).toFixed(1).replace('.',',')+' T/Thema' : 'Stoffliste fehlt',
+        open: ()=>this.open('fach', s.id)
+      };
+    });
+
+    // ---- Landebahn
+    const scale = 44;
+    const runway = voll ? SUBJ.map(s=>{
+      const d = DET[s.id], w = Math.min(d.needed/scale*100, 100), over = d.needed > klausurTage;
+      const eigen = s.id==='ter';
+      return { name:s.n, farbe:s.c,
+        barStyle:'position:absolute;left:0;top:0;bottom:0;width:'+w.toFixed(1)+'%;background:'+(over?'#a33526':s.c)+';border-radius:4px;'+(over?'box-shadow:inset -3px 0 0 #6d2018;':''),
+        label: d.needed+' Lerntage'+(eigen?' · morgen':''),
+        textFarbe: over||eigen ? '#a33526' : '#6f6a62' };
+    }) : [];
+    const summeTage = SUBJ.reduce((a,s)=>a+DET[s.id].needed,0);
+
+    // ---- Orga
+    const fristen = voll ? [
+      {titel:'BAföG-Folgeantrag einreichen',datum:'10. Nov 2026',rest:'überfällig · 2 T',farbe:'#a33526'},
+      {titel:'Abgabe Praktikumsprotokoll Biologie',datum:'20. Nov 2026',rest:'in 8 Tagen',farbe:'#8a5a1a'},
+      {titel:'Anmeldung Blockklausur',datum:'27. Nov 2026',rest:'in 15 Tagen',farbe:'#6f6a62'},
+      {titel:'Rückmeldung Sommersemester 2027',datum:'15. Feb 2027',rest:'in 95 Tagen',farbe:'#8b857c'}
+    ] : [];
+    const nachweise = voll ? [
+      {titel:'Krankenpflegepraktikum',zaehlwerk:'30 / 90 Tage',pct:33,hilfe:'Rest 60 Tage. Verbleibende Zeiträume: 3 Ferienphasen à ca. 6 Wochen → rund 20 Tage je Phase.'},
+      {titel:'Erste-Hilfe-Kurs',zaehlwerk:'0 / 1',pct:0,hilfe:'Kein Datum hinterlegt. Muss vor dem Physikum vorliegen — Vorlauffenster beginnt in 14 Monaten.'},
+      {titel:'Famulaturen',zaehlwerk:'0 / 4',pct:0,hilfe:'Erst ab 2029 relevant. Steht bewusst nur hier und taucht auf keiner anderen Seite auf.'}
+    ] : [
+      {titel:'Krankenpflegepraktikum',zaehlwerk:'unbekannt',pct:null,hilfe:'Noch kein Stand erfasst. Nicht „0 von 90“ — es ist nichts gemessen.'},
+      {titel:'Erste-Hilfe-Kurs',zaehlwerk:'unbekannt',pct:null,hilfe:'Noch kein Stand erfasst.'}
+    ];
+    const nachweiseV = nachweise.map(n=>({titel:n.titel,zaehlwerk:n.zaehlwerk,hilfe:n.hilfe,hasBar:n.pct!==null,
+      barStyle:'height:100%;width:'+(n.pct||0)+'%;background:'+akzent+';border-radius:4px'}));
+
+    const anmeldungen = voll ? [
+      {titel:'Klausur Med. Terminologie',zustand:'offen',fenster:'Fenster: 01.–15. Nov · noch 3 Tage',aktiv:true,ton:'#3f6b47'},
+      {titel:'Wahlfach Block 3',zustand:'öffnet in 12 Tagen',fenster:'Fenster: 24. Nov – 08. Dez',aktiv:false,ton:'#8b857c'},
+      {titel:'Hochschulsport Wintersemester',zustand:'verpasst',fenster:'Fenster geschlossen seit 4 Tagen',aktiv:false,ton:'#a33526'}
+    ] : [
+      {titel:'Noch keine Anmeldefenster hinterlegt',zustand:'unbekannt',fenster:'Kommen aus der Studienstruktur, sobald sie eingelesen ist.',aktiv:false,ton:'#8b857c'}
+    ];
+    const anmeldungenV = anmeldungen.map(a=>({titel:a.titel,zustand:a.zustand,fenster:a.fenster,aktiv:a.aktiv,
+      style:'padding:11px 0;border-bottom:1px solid #f2ece2;'+(a.aktiv?'':'opacity:'+(a.ton==='#8b857c'?'.62':'1')+';'),
+      chipStyle:'font-size:10.5px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:.04em;border-radius:4px;padding:2px 7px;white-space:nowrap;color:'+a.ton+';border:1px solid '+a.ton+'55;background:'+a.ton+'12'}));
+
+    const startRaw = voll
+      ? [['Immatrikulation bestätigt',1],['Semesterticket aktiviert',1],['Ersti-Einführung besucht',1],['Vault-Ordner je Fach anlegen',0],['Anki-Decks anlegen',0],['Uni-Kalender abonnieren',1]]
+      : [['Immatrikulation bestätigt',0],['Semesterticket aktivieren',0],['Ersti-Einführung eintragen',0],['Vault-Ordner je Fach anlegen',0],['Anki-Decks anlegen',0],['Uni-Kalender abonnieren',0]];
+    const startItems = startRaw.map(([titel,done])=>({titel,
+      strike: done ? 'color:#a09a90;text-decoration:line-through' : '',
+      dot:'width:14px;height:14px;border-radius:4px;flex:none;transform:translateY(2px);'+(done?'background:#3f6b47':'background:#fffdf9;border:1px solid #c9bfae')}));
+    const startOffen = startRaw.filter(x=>!x[1]).length;
+
+    // ---- Eingang
+    const inboxGruppen = voll ? [
+      {titel:'Kalenderabgleich',unter:'neu · verschoben · abgesagt',n:'3',ton:'#1b3358',items:[
+        {art:'NEU',ton:'#3f6b47',titel:'Repetitorium Anatomie · Di 17.11., 16:00–17:30, S 1.12',detail:'Aus dem Uni-Kalender, war gestern noch nicht vorhanden.'},
+        {art:'VERSCHOBEN',ton:'#8a5a1a',titel:'Seminar Physiologie · Do 10:00 statt 09:00',detail:'Raum bleibt S 2.04.'},
+        {art:'ABGESAGT',ton:'#a33526',titel:'VL Terminologie 06 · heute 08:00 entfällt',detail:'Bleibt im Kalender sichtbar, durchgestrichen — nicht gelöscht.'}
+      ]},
+      {titel:'Vorschläge',unter:'aus Dateien im Vault',n:'2',ton:'#7a4a23',items:[
+        {art:'THEMEN',ton:'#7a4a23',titel:'3 Themen aus „Biochemie 07“ gefunden — anlegen?',detail:'Enzymkinetik · Michaelis-Menten · Hemmtypen'},
+        {art:'ZUORDNUNG',ton:'#7a4a23',titel:'Notiz „Puffersysteme“ hat kein Fach — Chemie zuordnen?',detail:'Vermutung anhand des Ordnerpfads, nicht anhand des Inhalts.'}
+      ]},
+      {titel:'Konflikte',unter:'beide Seiten geändert',n:'1',ton:'#a33526',items:[
+        {art:'KONFLIKT',ton:'#a33526',titel:'Thema „Glykolyse“',detail:'Hier auf Stufe Feynman gesetzt, im Vault ist die Notiz gelöscht.',konflikt:true,links:'Feynman · 09.11.',rechts:'Datei nicht mehr vorhanden'}
+      ]},
+      {titel:'Hängende Aufträge',unter:'wartet auf dich',n:'1',ton:'#8b857c',items:[
+        {art:'IMPORT',ton:'#8b857c',titel:'Stundenplan-PDF importieren',detail:'Seit 3 Tagen unbestätigt. Solange läuft der Kalender auf abonnierten Terminen.'}
+      ]}
+    ] : [];
+    const inboxV = inboxGruppen.map(g=>({titel:g.titel,unter:g.unter,n:g.n,
+      dotStyle:'width:8px;height:8px;border-radius:50%;background:'+g.ton,
+      items:g.items.map(i=>({titel:i.titel,detail:i.detail,art:i.art,konflikt:!!i.konflikt,links:i.links,rechts:i.rechts,
+        artStyle:'font-size:10px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:.05em;border-radius:4px;padding:2px 6px;white-space:nowrap;flex:none;margin-top:1px;color:'+i.ton+';background:'+i.ton+'14;border:1px solid '+i.ton+'40'}))}));
+
+    const awayStapel = [
+      {n:'41',titel:'Kalenderänderungen',text:'Überwiegend Raumwechsel und zwei abgesagte Vorlesungen.',btn:'Alle übernehmen',prim:true},
+      {n:'14',titel:'Themenvorschläge',text:'Aus 5 Vorlesungsdateien, die neu im Vault liegen.',btn:'Ansehen',prim:false},
+      {n:'5',titel:'Konflikte',text:'Muss einzeln entschieden werden — keine Sammelaktion.',btn:'Einzeln prüfen',prim:false},
+      {n:'2',titel:'Hängende Aufträge',text:'Import Stundenplan · Anki-Abgleich.',btn:'Öffnen',prim:false}
+    ].map(s=>Object.assign({},s,{btnStyle:'margin-top:11px;width:100%;border-radius:6px;padding:7px 0;font-size:12.5px;'+(s.prim?'background:#1b3358;color:#f4f1ec;border:none':'background:#fffdf9;border:1px solid #ddd5c8;color:#6f6a62')}));
+
+    // ---- Fach-Overlay
+    const sid = st.subj, sub = SUBJ.find(x=>x.id===sid) || SUBJ[0], d = DET[sid];
+    const stNames = ['Priming','Notizen','Feynman','Loci','Anki'];
+    const fachStufen = d.st.map((n,i)=>({
+      name:stNames[i]+(i===3?' *':''),
+      wert:n+' / '+d.themen,
+      trackStyle:'height:44px;background:#f0eae0;border-radius:5px;position:relative;overflow:hidden;'+(i===3?'outline:1px dashed #c9bfae;outline-offset:-1px;':''),
+      fillStyle:'position:absolute;left:0;right:0;bottom:0;height:'+Math.round(n/d.themen*100)+'%;background:'+sub.c+';'+(i===3?'opacity:.5;':''),
+      labelStyle:'color:'+(i===3?'#a09a90':'#6f6a62')
+    }));
+    const themenBeispiel = {
+      ana:[['Obere Extremität · Muskeln',5,'aktuell'],['Gefäße obere Extremität',1,'offen · 6 T'],['Situs · Bauchraum',2,'aktuell'],['Rücken · tiefe Schicht',5,'fertig'],['Schädelbasis',0,'noch nicht dran']],
+      bch:[['Enzymkinetik',1,'offen · 16 T'],['Michaelis-Menten',0,'offen · 12 T'],['Glykolyse',3,'aktuell'],['Citratzyklus',2,'aktuell'],['Atmungskette',0,'noch nicht dran']],
+      phy:[['Membranpotenzial',2,'offen · 9 T'],['Aktionspotenzial',3,'aktuell'],['Muskelkontraktion',5,'fertig'],['Herzmechanik',1,'aktuell'],['Niere · Filtration',0,'noch nicht dran']],
+      bio:[['Zellzyklus',2,'aktuell'],['Mitose / Meiose',4,'fertig'],['Mikroskopie',5,'fertig'],['Genetik Grundlagen',1,'aktuell'],['Zellorganellen',5,'fertig']],
+      che:[['Puffersysteme',1,'offen · 12 T'],['Säure-Base',2,'aktuell'],['Redox',0,'offen · 7 T'],['Bindungslehre',3,'aktuell'],['Organik Einstieg',0,'noch nicht dran']],
+      phk:[['Optik',0,'offen · 24 T'],['Mechanik',1,'offen · 18 T'],['Elektrizität',0,'offen · 11 T'],['Strömungslehre',0,'offen · 9 T'],['Radioaktivität',0,'noch nicht dran']],
+      mps:[['Lernpsychologie',4,'fertig'],['Kommunikation',5,'fertig'],['Statistik I',2,'aktuell'],['Compliance',3,'aktuell'],['Schmerzmodelle',5,'fertig']],
+      ter:[['Wortbildung',5,'fertig'],['Lagebezeichnungen',5,'fertig'],['Bewegungsrichtungen',4,'fertig'],['Klinische Begriffe',3,'aktuell'],['Abkürzungen',2,'aktuell']]
+    };
+    const fachThemen = voll ? (themenBeispiel[sid]||[]).map(([titel,reached,stand])=>({
+      titel, stand,
+      farbe: stand.indexOf('offen')===0 ? '#a33526' : (stand==='fertig' ? '#3f6b47' : '#6f6a62'),
+      stufen:['P','N','F','L','A'].map((k,i)=>({k,
+        style:'width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-family:\'IBM Plex Mono\',monospace;'+(i<reached?('background:'+sub.c+';color:#f7f3ec'):(i===3?'background:#f4efe6;color:#c4bcae;border:1px dashed #d6cfc3':'background:#f0eae0;color:#b3aa9c'))}))
+    })) : [];
+
+    const fachSwitch = SUBJ.map(s=>({kurz:s.k, open:()=>this.open('fach', s.id),
+      style:'border-radius:6px;padding:5px 11px;font-size:11.5px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:.04em;'+(s.id===sid?('background:'+s.c+';color:#f7f3ec;border:1px solid '+s.c):'background:#fdfaf5;border:1px solid #e2dcd2;color:#6f6a62')}));
+
+    const takt = (36/Math.max(d.offen,1)).toFixed(1).replace('.',',');
+    const taktTon = this.ampel(d.offen);
+    const anwKrit = d.fehl[0] >= d.fehl[1];
+
+    const klausurFaecher = SUBJ.slice().sort((a,b)=>DET[b.id].needed-DET[a.id].needed).map(s=>({
+      kurz:s.k, wert:DET[s.id].needed+' T', open:()=>this.open('fach', s.id),
+      style:'border-radius:7px;padding:7px 12px;text-align:left;border:1px solid '+(DET[s.id].needed>klausurTage?'#a33526':'#e2dcd2')+';background:'+(DET[s.id].needed>klausurTage?'#a3352612':'#fffdf9')+';color:'+(DET[s.id].needed>klausurTage?'#a33526':'#17233a')}));
+
+    const fehltListe = voll ? [
+      {titel:'Physik — 21 Themen ohne Notizen',wert:'38 Lerntage',farbe:'#a07a2c'},
+      {titel:'Biochemie — 17 Themen ohne Notizen',wert:'18 Lerntage',farbe:'#2c5b58'},
+      {titel:'Chemie — 14 Themen ohne Notizen',wert:'12 Lerntage',farbe:'#8a4b2a'},
+      {titel:'Physiologie — 8 Themen offen',wert:'9 Lerntage',farbe:'#55622f'},
+      {titel:'Anatomie — 5 Themen offen',wert:'6 Lerntage',farbe:'#1b3358'},
+      {titel:'Biologie — 3 Themen offen',wert:'5 Lerntage',farbe:'#35673f'}
+    ] : [];
+
+    const settings = [
+      {name:'Vault-Pfad',hinweis:'Ordner, in dem gelesen und geschrieben wird',wert:'~/Obsidian/Studium',mono:true},
+      {name:'Port',hinweis:'lokal, nicht erreichbar von außen',wert:'7788',mono:true},
+      {name:'Anki-Adresse',hinweis:'AnkiConnect',wert:'http://127.0.0.1:8765',mono:true},
+      {name:'Sichtbare Terminarten',hinweis:'im Kalender',wert:'Vorlesung · Seminar · Praktikum · Klausur · Privat (gedämpft)',mono:false},
+      {name:'Geratene Termine kennzeichnen',hinweis:'gestrichelter Rahmen + Hinweis',wert:'an',mono:false},
+      {name:'Kontaktpunkt',hinweis:'ein Zeitpunkt pro Tag, sonst still',wert:'07:15',mono:true}
+    ].map(s=>Object.assign({},s,{wertStyle:'font-size:13px;padding:7px 11px;background:#fdfaf5;border:1px solid #e2dcd2;border-radius:6px;'+(s.mono?'font-family:\'IBM Plex Mono\',monospace;':'')}));
+
+    const setupLangRaw = [
+      ['Vault-Pfad setzen','Ohne Pfad kann die App nichts lesen. Alles andere hängt daran.','Ordner wählen',true],
+      ['Uni-Kalender abonnieren','Liefert Vorlesungen, Seminare, Praktika. Geht auch ohne amtliches Stundenplan-PDF.','Adresse eintragen',true],
+      ['Fächer des Blocks anlegen','Acht Namen, mehr nicht. Erst damit gibt es überhaupt Kacheln.','Anlegen',false],
+      ['Stoffliste je Fach','Der Nenner. Ohne ihn zeigt die App bewusst keine Balken, sondern „Stoffliste fehlt“.','Aus Dateien vorschlagen',false],
+      ['Anki verbinden','Optional. Solange nicht verbunden, steht überall „Anki läuft nicht“ — nie „0 fällig“.','Verbinden',false],
+      ['Klausurtermine eintragen','Was nicht amtlich ist, wird als geschätzt markiert und bleibt sichtbar markiert.','Eintragen',false]
+    ];
+    const setupLang = setupLangRaw.map(([titel,text,btn,done])=>({titel,text,btn:done?'erledigt':btn,
+      dot:'width:15px;height:15px;border-radius:4px;flex:none;margin-top:2px;'+((done&&voll)?'background:#3f6b47':'background:#fffdf9;border:1px solid #c9bfae'),
+      btnStyle:'flex:none;border-radius:6px;padding:6px 12px;font-size:12.5px;'+((done&&voll)?'background:#f2ece2;border:1px solid #e2dcd2;color:#a09a90':'background:#1b3358;color:#f4f1ec;border:none')}));
+
+    const setupItems = setupLangRaw.slice(0,6).map(([titel,text])=>({titel,text,
+      dot:'width:13px;height:13px;border-radius:4px;flex:none;transform:translateY(2px);background:#fffdf9;border:1px solid #c9bfae'}));
+
+    const mDays = days.map((dd,i)=>({name:dd.name, datum:dd.datum,
+      leer: dd.events.length===0,
+      list: (voll ? this.EV().filter(e=>e.d===idxs[i]) : []).map(e=>({
+        zeit:this.fmt(e.s)+'–'+this.fmt(e.e), titel:e.t,
+        farbe: e.f ? this.col(e.f) : '#c9bfae',
+        strike: e.cancel ? 'color:#a09a90;text-decoration:line-through' : ''
+      }))}));
+
+    const ov = st.overlay;
+    const ovTitel = ov==='fach' ? sub.n : ov==='klausur' ? 'Blockklausur' : ov==='setup' ? 'Einrichtung' : ov==='settings' ? 'Einstellungen' : '';
+    const ovUnter = ov==='fach' ? (voll ? d.themen+' Themen im Block' : 'noch keine Daten') : ov==='klausur' ? 'Block 2 · alle acht Fächer gleichzeitig' : ov==='setup' ? 'einmalig' : ov==='settings' ? 'lokal' : '';
+
+    return {
+      isMobile: st.view==='mobile', isDesktop: st.view!=='mobile',
+      isLeer: leer,
+      modeLabel: voll ? 'Leerer Zustand' : 'Gefüllter Zustand',
+      isHeute: st.page==='heute', isBlock: st.page==='block', isOrga: st.page==='orga', isEingang: st.page==='eingang',
+
+      goHeute:()=>this.setState({page:'heute'}), goBlock:()=>this.setState({page:'block'}),
+      goOrga:()=>this.setState({page:'orga'}), goEingang:()=>this.setState({page:'eingang'}),
+      goMobile:()=>this.setState({view:'mobile'}), goDesktop:()=>this.setState({view:'desktop'}),
+      setVoll:()=>this.setState({mode:'voll'}), setLeer:()=>this.setState({mode:'leer'}),
+      toggleMode:()=>this.setState(s=>({mode:s.mode==='voll'?'leer':'voll'})),
+      setTag:()=>this.setState({range:'tag'}), setWoche:()=>this.setState({range:'woche'}), setMonat:()=>this.setState({range:'monat'}),
+      toggleFilter:()=>this.setState(s=>({filter:s.filter==='alle'?'studium':'alle'})),
+      setAway:()=>this.setState({away:true}), setDa:()=>this.setState({away:false}),
+      openSetup:()=>this.open('setup'), openSettings:()=>this.open('settings'), openKlausur:()=>this.open('klausur'),
+      close:()=>this.close(), closeBackdrop:()=>this.close(), stop:(e)=>e.stopPropagation(),
+
+      tabHeute:this.tab(st.page==='heute'), tabBlock:this.tab(st.page==='block'),
+      tabOrga:this.tab(st.page==='orga'), tabEingang:this.tab(st.page==='eingang'),
+      eingangCount: voll ? '7' : '0',
+      eingangBadge:'margin-left:7px;font-size:10px;border-radius:9px;padding:1px 6px;'+(voll?'background:#7a4a23;color:#faf6ef':'background:#eee7dd;color:#a09a90'),
+      segVoll:this.seg(voll), segLeer:this.seg(leer),
+      segDa:this.seg(!st.away), segAway:this.seg(st.away),
+      rgTag:this.seg(st.range==='tag'), rgWoche:this.seg(st.range==='woche'), rgMonat:this.seg(st.range==='monat'),
+      filterStyle:'border-radius:6px;padding:5px 11px;font-size:12px;'+(st.filter==='studium'?'background:#1b3358;color:#f4f1ec;border:1px solid #1b3358':'background:#fffdf9;border:1px solid #ddd5c8;color:#6f6a62'),
+
+      heuteDatum:'Do, 12. November 2026',
+      blockTagXvonY: voll ? 'Tag 18 von 54' : 'kein Block erfasst',
+      klausurTageLabel: voll ? '36 Tagen' : 'unbekannt',
+      nextTermin: voll ? 'Praktikum Anatomie · 14:00 · S 03' : 'kein Termin bekannt',
+      syncText: voll ? 'Kalenderabgleich vor 31 Std — veraltet' : 'Kein Kalender verbunden',
+      syncStyle:'align-self:center;border-radius:6px;padding:5px 11px;font-size:12px;'+(voll?'background:#7a4a23;color:#faf6ef;border:1px solid #9a6135':'background:rgba(240,235,225,.12);border:1px solid rgba(240,235,225,.3);color:#e2dcd2'),
+
+      kalTitel: st.range==='monat' ? 'November 2026' : (st.range==='tag' ? 'Donnerstag, 12. November' : 'Woche 09.–15. November'),
+      zeigeRaster: voll && st.range!=='monat',
+      zeigeMonat: voll && st.range==='monat',
+      noCal: leer,
+      hasCal: voll,
+      dayCols:'repeat('+idxs.length+',1fr)',
+      days, hours, monatCells,
+      ohneZeit, hasOffen: voll, noOffen: leer,
+
+      hasJetzt: voll, noJetzt: leer,
+      jetztTitel:'Praktikum Anatomie · Situs', jetztZeit:'14:00–17:00', jetztRaum:'S 03', jetztCountdown:'2 Std 14 min', jetztPrep:true,
+
+      todos, hasTodos: voll && todoRaw.length>0, noTodos: leer,
+      todoKopf: voll ? offenN+' offen · ca. 2 Std 10 min' : 'unbekannt',
+
+      ankiOk: voll, ankiAus: leer, ankiRows, ankiTotal:String(ankiTotal), ankiDecks:'8',
+
+      watch, hasWatch: voll, noWatch: leer,
+      tiles,
+
+      blockName: voll ? 'Block 2 · Bewegung & Energie' : 'Kein Block erfasst',
+      blockWoche: voll ? 'Woche 3 von 8' : 'unbekannt',
+      blockPhase: voll ? 'Lehrbetrieb' : 'unbekannt',
+      phasen: ['Lehrbetrieb','Endspurt','Klausur','Nachlauf'].map((n,i)=>({name:n,
+        tage:[ '29 Tage', '7 Tage', '18. Dez', '2 Wochen'][i],
+        style:'flex:'+[4,1.4,.7,1.4][i]+';border-radius:7px;padding:10px 12px;'+(i===0?'background:#1b3358;color:#f0ebe1':'background:#f4efe6;color:#6f6a62;border:1px solid #eae3d8')})),
+      klausurTage:String(klausurTage), lehrTage:String(lehrTage), endspurtTage:String(endspurtTage),
+      klausurDatum:'Fr, 18. Dezember 2026',
+      klausurSplit:'29 Lehrbetriebstage · 7 Endspurttage',
+      terTage:'1 Tag', terDatum:'Fr, 13. November 2026',
+
+      runway, hasRunway: voll, noRunway: leer,
+      examLine:(klausurTage/scale*100).toFixed(1),
+      summeTage:String(summeTage),
+      summeSatz:'Das geht rechnerisch nur auf, wenn du im Schnitt an 2,7 Fächern pro Tag arbeitest. Physik allein braucht 38 Tage — mehr, als überhaupt bleiben.',
+
+      fachKarten: SUBJ.map(s=>{
+        const dd = DET[s.id];
+        const stufen = voll ? dd.st.map((n,i)=>({style:'flex:1;height:6px;border-radius:3px;background:linear-gradient(to right,'+s.c+' '+Math.round(n/dd.themen*100)+'%,#eee7dd '+Math.round(n/dd.themen*100)+'%);'+(i===3?'opacity:.55;':'')}))
+          : [1,2,3,4,5].map(()=>({style:'flex:1;height:6px;border-radius:3px;background:repeating-linear-gradient(45deg,#eee7dd 0 3px,#f7f3ec 3px 6px)'}));
+        return { name:s.n, farbe:s.c, stufen,
+          ampelStyle:'width:8px;height:8px;border-radius:50%;background:'+(voll?this.ampel(dd.offen):'#d6cfc3'),
+          offenLabel: voll ? dd.offen+' offen' : 'Stoffliste fehlt',
+          taktLabel: voll ? (36/Math.max(dd.offen,1)).toFixed(1).replace('.',',')+' T/Thema' : '',
+          anwesenheit: voll ? ('Fehltage '+dd.fehl[0]+' von '+dd.fehl[1]) : 'Anwesenheit unbekannt',
+          anwFarbe: voll && dd.fehl[0]>=dd.fehl[1] ? '#a33526' : '#8b857c',
+          open:()=>this.open('fach', s.id) };
+      }),
+
+      cross: voll ? [
+        {titel:'Muskelkontraktion',faecher:['ANA','PHY','BCH']},
+        {titel:'Säure-Basen-Haushalt',faecher:['CHE','PHY']},
+        {titel:'Membranpotenzial',faecher:['PHK','PHY','BIO']},
+        {titel:'Energiebereitstellung',faecher:['BCH','PHY']}
+      ].map(c=>({titel:c.titel, faecher:c.faecher.map(k=>{
+        const s = SUBJ.find(x=>x.k===k);
+        return {kurz:k, style:'font-size:10.5px;font-family:\'IBM Plex Mono\',monospace;border-radius:4px;padding:2px 6px;color:'+s.c+';background:'+s.c+'14;border:1px solid '+s.c+'40'};
+      })})) : [],
+      hasCross: voll, noCross: leer,
+      ruhend: voll ? [
+        {name:'Histologie',farbe:'#6b5f74',stand:'Block 1 · 68 %'},
+        {name:'Embryologie',farbe:'#5c6b74',stand:'Block 1 · 74 %'}
+      ] : [{name:'unbekannt',farbe:'#c9bfae',stand:'nicht erfasst'}],
+
+      fristen, hasFristen: voll, noFristen: leer,
+      mFristen: fristen.slice(0,3),
+      nachweise: nachweiseV, anmeldungen: anmeldungenV,
+      startItems, hasStart: startOffen>0,
+      startStand: startOffen+' von '+startRaw.length+' offen',
+      regeln:[
+        {nr:'01',text:'Jeder Eintrag hat ein Vorlauffenster — vorher steht er nur hier.'},
+        {nr:'02',text:'„Im Blick“ ist auf drei Zeilen gedeckelt.'},
+        {nr:'03',text:'Ein Kontaktpunkt pro Tag. Kein dauerhaft rotes Zeichen.'},
+        {nr:'04',text:'Vertagen ist folgenlos — kein Zähler, kein Vermerk.'},
+        {nr:'05',text:'Harte Einzeltermine werden Termine, keine To-dos.'}
+      ],
+
+      inboxGruppen: inboxV,
+      eingangNormal: voll && !st.away,
+      eingangAway: voll && st.away,
+      eingangLeer: leer,
+      awayStapel,
+
+      ovAny: !!ov, ovFach: ov==='fach', ovKlausur: ov==='klausur', ovSetup: ov==='setup', ovSettings: ov==='settings',
+      ovTitel, ovUnter,
+      ovBoxStyle:'width:100%;max-width:'+(ov==='settings'||ov==='setup'?'820px':'1180px')+';background:#fffdf9;border:1px solid #ddd5c8;border-radius:12px;box-shadow:0 26px 70px rgba(20,26,40,.32);align-self:flex-start;overflow:hidden;animation:ovIn .18s cubic-bezier(.2,.8,.3,1)',
+      ovMarkStyle:'width:4px;height:22px;border-radius:2px;background:'+(ov==='fach'?sub.c:(ov==='klausur'?'#a33526':'#7a4a23')),
+
+      fachMarke: d.neuland ? 'Neuland' : 'Anschluss',
+      fachMarkeStyle:'font-size:11px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:.05em;border-radius:5px;padding:3px 9px;'+(d.neuland?'background:#7a4a2314;color:#7a4a23;border:1px solid #7a4a2340':'background:#3f6b4714;color:#3f6b47;border:1px solid #3f6b4740'),
+      fachKlausur: sid==='ter' ? 'Eigene Klausur · Fr, 13. November 2026' : 'Blockklausur · Fr, 18. Dezember 2026',
+      fachAnwesenheit: voll ? ('Fehltage '+d.fehl[0]+' von '+d.fehl[1]+(anwKrit?' · Budget aufgebraucht':'')) : 'Anwesenheit unbekannt',
+      fachAnwFarbe: voll && anwKrit ? '#a33526' : '#6f6a62',
+      fachMehrblock: voll && !!d.mehrblock,
+      fachBloecke: [['Block 1','—'],['Block 2','läuft'],['Block 3','ruht'],['Block 4','geplant'],['Block 5','geplant']].map(([n,w],i)=>({name:n,wert:w,
+        style:'flex:1;border-radius:6px;padding:9px 10px;'+(i===1?'background:#1b3358;color:#f0ebe1':'background:#fdfaf5;border:1px solid #e2dcd2;color:#6f6a62')})),
+      fachKumuliert:'Kumuliert über alle Blöcke: noch kein Wert — die 60-%-Regel je Fach greift erst ab der ersten gewerteten Klausur.',
+      fachHatNenner: voll, fachKeinNenner: leer,
+      fachStufen,
+      fachRueck:String(d.rueck),
+      fachAeltest: d.aeltest,
+      rueckBoxStyle:'border-radius:9px;padding:13px 15px;'+(voll && d.rueck>5 ? 'background:#a33526;color:#fdf3f0' : 'background:#1b3358;color:#f0ebe1'),
+      fachTakt: takt,
+      fachTaktStyle:'font-family:\'Source Serif 4\',Georgia,serif;font-size:34px;line-height:1;color:'+taktTon,
+      fachTaktSatz: taktTon==='#a33526' ? 'In dem Tempo geht es rechnerisch nicht auf — nicht: du bist zu langsam.' : (taktTon==='#a8761f' ? 'Knapp, aber machbar, wenn nichts dazukommt.' : 'Reicht bei gleichbleibendem Zulauf.'),
+      anschlussStyle:'border-radius:9px;padding:13px 15px;background:'+(d.neuland?'#f7efe0':'#f2f4f0')+';border:1px solid '+(d.neuland?'#e3d3b4':'#d8ded4'),
+      anschlussKopf: d.neuland ? 'ERWARTUNG · NEULAND' : 'ANSCHLUSS AN DIE AUSBILDUNG',
+      anschlussText: d.anschluss,
+      fachThemenKopf: voll ? (d.offen+' offen von '+d.themen) : 'keine Liste',
+      fachThemen,
+      fachMaterial: voll ? [
+        {typ:'PDF',name:sub.n+' – Vorlesung 05.pdf'},
+        {typ:'MD',name:sub.n+'/Themen.md'},
+        {typ:'PNG',name:'Skizze Übersicht.png'}
+      ] : [],
+      hasFachMaterial: voll, fachHatMaterial: voll, fachKeinMaterial: leer,
+      fachAnkiDeck:'Deck: Studium::'+sub.k,
+      fachAnkiZahlen: d.anki[0]+' fällig · '+d.anki[1]+' Karten gesamt',
+      fachAnwRegel:'Praktika und Seminare sind pflichtig. Mehr als '+d.fehl[1]+' Fehltage im Block bedeuten den Verlust der Klausurzulassung — Nachholen nur im nächsten Studienjahr.',
+      fachLinks:[{name:'Notion · Fachseite'},{name:'Vault-Ordner'},{name:'Verwandt: Physiologie'}],
+      fachSwitch,
+
+      klausurFaecher,
+      fehltListe, hasFehlt: voll, noFehlt: leer,
+      fehltRest:'2 weitere Fächer mit zusammen 8 Lerntagen — bewusst nicht aufgeklappt.',
+      nachlauf:[
+        {datum:'18. Dez',titel:'Klausur'},
+        {datum:'ca. 08. Jan',titel:'Ergebnisbekanntgabe'},
+        {datum:'ca. 12. Jan',titel:'Klausureinsicht'}
+      ],
+
+      setupItems, setupLang, settings,
+      fachFarben: SUBJ.map(s=>({kurz:s.k, farbe:s.c})),
+
+      mExportStand:'Stand exportiert: 12.11.2026, 07:14',
+      mDays
+    };
+  }
+
+  fmt(m){ const h = Math.floor(m/60), mm = m%60; return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm; }
+}
+</script>
+</body>
+</html>
