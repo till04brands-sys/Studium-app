@@ -1,0 +1,9 @@
+# Einrichtung:
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# urllib3 bleibt auf 1.x: Das System-Python auf diesem Mac ist gegen
+# LibreSSL 2.8.3 gebaut, und urllib3 2.x verlangt OpenSSL 1.1.1+.
+google-api-python-client>=2.100
+google-auth-httplib2>=0.2
+google-auth-oauthlib>=1.2
+urllib3<2
