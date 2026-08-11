@@ -1,0 +1,98 @@
+@import url("./schriften.css");
+
+/* Eigenes Stylesheet, nicht das der App: Diese Seite geht ins Netz und soll
+   nichts mitschleppen, was sie nicht braucht. Sie ist außerdem für den Daumen
+   gebaut, nicht für die Maus. */
+
+:root {
+  --papier: #efebe4;
+  --karte:  #fffdf9;
+  --navy:   #1b3358;
+  --tinte:  #17233a;
+  --rot:    #a33526;
+  --linie:  #e2dcd2;
+  --linie-zart: #f2ece2;
+  --grau:   #6f6a62;
+  --grau-hell: #8b857c;
+  --sans:  "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono:  "IBM Plex Mono", ui-monospace, monospace;
+  --serif: "Source Serif 4", Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--papier); -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--papier); color: var(--tinte);
+  font-family: var(--sans); font-size: 15px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+main { max-width: 520px; margin: 0 auto; padding: 16px 16px 40px; }
+
+.stand {
+  background: #e6ddd0; border: 1px solid #d6c9b6; border-radius: 8px;
+  padding: 8px 10px; font-size: 12px; font-family: var(--mono);
+  color: #6b5940; margin-bottom: 16px;
+}
+
+h1 { font-family: var(--serif); font-size: 25px; font-weight: 400; line-height: 1.15; margin: 0 0 2px; }
+.unter { font-size: 14px; color: var(--grau); margin: 0 0 16px; }
+
+.marke {
+  font-size: 11px; font-family: var(--mono); letter-spacing: .08em;
+  color: var(--grau-hell); margin: 20px 0 8px;
+}
+
+.klausur { background: var(--navy); color: #f4f1ec; border-radius: 10px; padding: 14px 16px; }
+.klausur .marke { color: inherit; opacity: .7; margin: 0; }
+.zahlzeile { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+.zahl { font-family: var(--serif); font-size: 40px; line-height: 1; }
+.zahl.klein { font-size: 30px; }
+.einheit { font-size: 14px; opacity: .85; }
+.teil { font-size: 13px; opacity: .8; margin-top: 4px; }
+.klausur .leer { font-size: 14px; opacity: .85; margin: 6px 0 0; }
+
+.woche { display: flex; flex-direction: column; gap: 10px; }
+.tag { background: var(--karte); border: 1px solid var(--linie); border-radius: 8px; overflow: hidden; }
+.tag.heute { border-color: #c9bfae; box-shadow: inset 3px 0 0 var(--navy); }
+.tagkopf {
+  display: flex; justify-content: space-between; padding: 8px 11px;
+  background: #f7f3ec; border-bottom: 1px solid var(--linie);
+  font-size: 13px; font-weight: 600;
+}
+.tagkopf .datum { color: var(--grau-hell); font-family: var(--mono); font-weight: 400; }
+
+.zeile {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 9px 11px; border-bottom: 1px solid var(--linie-zart);
+  background: var(--karte);
+}
+.zeile:last-child { border-bottom: none; }
+.zeit { font-family: var(--mono); font-size: 12px; color: var(--grau); min-width: 86px; flex: none; }
+.zeile .titel { font-size: 14px; flex: 1; }
+.zeile.weg .titel { text-decoration: line-through; color: var(--grau-hell); }
+.zeile.leise { color: var(--grau-hell); font-size: 13px; }
+.punkt {
+  width: 9px; height: 9px; flex: none; border-radius: 50%;
+  border: 1px solid #b9b1a4; transform: translateY(1px);
+}
+.meta { font-size: 12px; font-family: var(--mono); color: var(--grau-hell); white-space: nowrap; }
+.meta.spaet { color: var(--rot); }
+
+/* Listen ohne eigenen Rahmen je Zeile — die Zeilen bilden den Kasten. */
+.marke + .zeile, .zeile + .zeile { border-left: 1px solid var(--linie); border-right: 1px solid var(--linie); }
+.marke + .zeile { border-top: 1px solid var(--linie); border-radius: 8px 8px 0 0; }
+.zeile:last-of-type { border-bottom: 1px solid var(--linie); border-radius: 0 0 8px 8px; }
+
+.kasten { background: var(--karte); border: 1px solid var(--linie); border-radius: 8px; padding: 13px; display: flex; align-items: baseline; gap: 8px; }
+.kasten .einheit { color: var(--grau); }
+.kasten.warn { background: #f7efe0; border-color: #e3d3b4; color: #8a5a1a; font-size: 14px; }
+
+.leerkasten {
+  background: var(--karte); border: 1px dashed #d6cfc3; border-radius: 8px;
+  padding: 14px; font-size: 14px; color: var(--grau);
+}
+
+footer {
+  margin-top: 26px; padding-top: 14px; border-top: 1px solid #ddd5c8;
+  font-size: 12px; font-family: var(--mono); color: #a09a90; line-height: 1.6;
+}

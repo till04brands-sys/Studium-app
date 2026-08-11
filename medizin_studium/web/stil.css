@@ -85,7 +85,11 @@ a:hover { color: var(--braun); }
   border: 1px solid var(--rand); background: var(--karte); border-radius: 5px;
   padding: 3px 9px; font-size: 11px; font-family: var(--mono); color: var(--grau);
 }
-.werkzeuge button:hover { background: #f7f1e7; }
+.werkzeuge button:hover, .werkzeuge .knopflink:hover { background: #f7f1e7; }
+.werkzeuge .knopflink {
+  border: 1px solid var(--rand); background: var(--karte); border-radius: 5px;
+  padding: 3px 9px; font-size: 11px; font-family: var(--mono); color: var(--grau);
+}
 .werkzeuge .heute-zurueck { color: var(--navy); border-color: var(--navy); }
 
 /* Statusband */

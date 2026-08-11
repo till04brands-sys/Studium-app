@@ -29,7 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import anki, studium
+from . import anki, schnappschuss, studium
 from .konfig import konfig, konfig_pfad
 from .vault import (
     Eintrag, Konflikt, Vault, feld_setzen, jsonl_ersetzen, jsonl_lesen,
@@ -142,6 +142,19 @@ class Griff(BaseHTTPRequestHandler):
                 return self._json(self._einstellungen())
             if pfad == "/api/kalender":
                 return self._json(self._kalender())
+            if pfad in ("/mobil", "/mobil/"):
+                # Dieselbe Erzeugung wie der veröffentlichte Schnappschuss,
+                # inklusive der Sperre. Was hier steht, steht auch dort.
+                seite = schnappschuss.html_bauen(
+                    schnappschuss.daten(self.vault, self._tag(abfrage)))
+                schnappschuss.pruefen(seite)
+                roh = seite.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(roh)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                return self.wfile.write(roh)
             if pfad in ("/", "/index.html"):
                 return self._datei(WEB / "index.html")
             return self._datei(WEB / pfad.lstrip("/"))
