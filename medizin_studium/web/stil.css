@@ -282,19 +282,130 @@ a:hover { color: var(--braun); }
 }
 .kachel:hover { background: #f7f1e7; border-color: #d9d0c2; }
 .kachel .oben { display: flex; align-items: center; gap: 7px; }
-.kachel .strich { width: 3px; height: 14px; border-radius: 2px; background: var(--navy); }
 .kachel .kurz { font-size: 12px; font-family: var(--mono); font-weight: 500; letter-spacing: .04em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kachel .ampel { width: 7px; height: 7px; border-radius: 50%; margin-left: auto; background: var(--grau-zart); }
-.kachel .ampel.gruen { background: var(--gruen); }
-.kachel .ampel.gelb { background: #b8862a; }
-.kachel .ampel.rot { background: var(--rot); }
 .kachel .stufen { display: flex; gap: 2px; margin-top: 8px; }
-.kachel .stufe { flex: 1; height: 4px; border-radius: 2px; background: var(--linie-zart); }
-.kachel .stufe.voll { background: var(--navy); }
-.kachel .stufe.teil { background: #93a3bd; }
 .kachel .takt { font-size: 11px; font-family: var(--mono); color: var(--grau-hell); margin-top: 7px; }
 .kachel.platzhalter { border-style: dashed; }
+
+/* Diese drei tauchen auf beiden Seiten auf — deshalb ohne Elternklasse.
+   Als `.kachel .stufe` hatten sie auf der Blockseite Breite null. */
+.strich { width: 3px; height: 14px; flex: none; border-radius: 2px; background: var(--navy); }
+.ampel { width: 7px; height: 7px; flex: none; border-radius: 50%; margin-left: auto; background: var(--rand); }
+.ampel.gruen { background: var(--gruen); }
+.ampel.gelb  { background: #b8862a; }
+.ampel.rot   { background: var(--rot); }
+.stufe { flex: 1; height: 4px; border-radius: 2px; background: var(--linie); }
+.stufe.voll { background: var(--navy); }
+.stufe.teil { background: #93a3bd; }
+
+/* ------------------------------------------------------------ Seite Block --- */
+#seiteBlock { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+.polster { padding: 14px 16px; }
+.karte-kopf.schlicht { border-bottom: none; padding: 0 0 10px; flex-wrap: wrap; }
+.karte-notiz-lang { font-size: 12.5px; color: var(--grau); }
+.karte-marke.abstand { display: block; margin-bottom: 8px; }
+
+.blockkopf { padding: 16px 18px; }
+.blockkopf .zeile { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.blockkopf .name { font-family: var(--serif); font-size: 24px; }
+.phasen { display: flex; gap: 4px; margin-top: 12px; }
+.phase {
+  flex: 1; border-radius: 7px; padding: 9px 11px;
+  background: var(--kachel); border: 1px solid var(--linie-hell); color: var(--grau);
+}
+.phase.laeuft { background: var(--navy); border-color: var(--navy); color: #f0ebe1; }
+.phase.vorbei { opacity: .5; }
+.phase .n { font-size: 12.5px; font-weight: 600; }
+.phase .t { font-size: 11px; font-family: var(--mono); opacity: .75; margin-top: 3px; }
+
+.klausuren { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+.klausur-gross {
+  background: var(--navy); color: #f0ebe1; border-radius: 10px; padding: 18px 20px;
+}
+.klausur-gross .marke { font-size: 11px; font-family: var(--mono); letter-spacing: .08em; opacity: .6; }
+.klausur-gross .zahlzeile { display: flex; align-items: baseline; gap: 14px; margin-top: 8px; }
+.klausur-gross .zahl { font-family: var(--serif); font-size: 46px; line-height: 1; }
+.klausur-gross .wann { font-size: 14px; }
+.klausur-gross .teil { font-size: 12.5px; opacity: .75; margin-top: 3px; }
+.klausur-gross .regel { margin-top: 12px; font-size: 12.5px; opacity: .8; line-height: 1.45; }
+
+.klausur-klein {
+  background: var(--karte); border: 1px solid var(--linie); border-left: 3px solid #7c4a5e;
+  border-radius: 10px; padding: 16px 18px;
+}
+.klausur-klein .fach { font-family: var(--serif); font-size: 19px; margin-top: 6px; }
+.klausur-klein .zahlzeile { display: flex; align-items: baseline; gap: 9px; margin-top: 8px; }
+.klausur-klein .zahl { font-family: var(--serif); font-size: 30px; line-height: 1; color: var(--rot); }
+.klausur-klein .hinweis { font-size: 12.5px; color: var(--grau); margin-top: 8px; line-height: 1.45; }
+
+/* Landebahn */
+.bahn { position: relative; padding-right: 8px; }
+.bahn-zeile { display: grid; grid-template-columns: 190px 1fr 110px; align-items: center; gap: 10px; padding: 4px 0; }
+.bahn-zeile .fach { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.bahn-zeile .fach span:last-child { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bahn-spur { position: relative; height: 18px; background: #f4efe6; border-radius: 4px; overflow: hidden; }
+.bahn-balken { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--navy); }
+.bahn-balken.gelb { background: #b8862a; }
+.bahn-balken.rot { background: var(--rot); }
+.bahn-zeile .wert { font-size: 11.5px; font-family: var(--mono); color: var(--grau); text-align: right; }
+.eigen-marke {
+  position: absolute; top: 0; bottom: 0; width: 2px; background: #7c4a5e;
+  font-size: 0; overflow: visible;
+}
+.eigen-marke::after {
+  content: ""; position: absolute; top: -2px; left: -2px;
+  width: 6px; height: 6px; border-radius: 50%; background: #7c4a5e;
+}
+.bahn-marke {
+  position: absolute; top: 0; bottom: 0; width: 2px; background: var(--rot); z-index: 3;
+}
+.bahn-marke span {
+  position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; font-family: var(--mono); color: var(--rot);
+  background: var(--karte); padding: 0 5px; white-space: nowrap;
+}
+.bahn-summe {
+  margin-top: 14px; background: #f7efe0; border: 1px solid #e3d3b4;
+  border-radius: 8px; padding: 13px 15px; font-size: 14.5px; line-height: 1.5; max-width: 90ch;
+}
+.bahn-summe.knapp { background: #f6e3df; border-color: #e0bdb5; }
+
+.leerkasten {
+  border: 1px dashed #d6cfc3; border-radius: 8px; padding: 20px; text-align: center;
+}
+.leerkasten b { font-size: 15px; font-family: var(--serif); font-weight: 400; }
+.leerkasten p { font-size: 13px; color: var(--grau); margin: 6px auto 0; line-height: 1.5; max-width: 60ch; }
+
+/* Fachkarten */
+.fachnetz { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.fachkarte {
+  text-align: left; background: var(--karte); border: 1px solid var(--linie);
+  border-radius: 10px; padding: 13px 14px;
+}
+.fachkarte.platzhalter { border-style: dashed; }
+.fachkarte .oben { display: flex; align-items: center; gap: 8px; }
+.fachkarte .name { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fachkarte .stufen { display: flex; gap: 3px; margin-top: 10px; }
+.fachkarte .zahlen {
+  display: flex; justify-content: space-between; margin-top: 10px;
+  font-size: 11.5px; font-family: var(--mono); color: var(--grau);
+}
+.fachkarte .anw { margin-top: 7px; font-size: 11.5px; color: var(--grau-hell); }
+
+.unten { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; align-items: start; }
+.ruhend { background: #f7f3ec; }
+.quer-zeile, .ruhe-zeile {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  background: var(--kachel); border: 1px solid var(--linie-hell); border-radius: 7px;
+  margin-bottom: 7px;
+}
+.ruhe-zeile { opacity: .62; }
+.quer-zeile .titel { font-size: 13px; flex: 1; }
+.quer-marke {
+  font-size: 10px; font-family: var(--mono); background: var(--linie-zart);
+  color: var(--grau); border-radius: 3px; padding: 2px 5px;
+}
 
 /* -------------------------------------------------------------- Sonstiges --- */
 .meldung {

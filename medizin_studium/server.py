@@ -117,6 +117,9 @@ class Griff(BaseHTTPRequestHandler):
         try:
             if pfad == "/api/zustand":
                 return self._json(self._zustand(abfrage))
+            if pfad == "/api/block":
+                self.vault.vergessen()
+                return self._json(studium.block_zustand(self.vault, self._tag(abfrage)))
             if pfad == "/api/kalender":
                 return self._json(self._kalender())
             if pfad in ("/", "/index.html"):

@@ -17,8 +17,8 @@
         <span class="marke-zusatz">HHU · Modellstudiengang</span>
       </div>
       <nav class="reiter">
-        <button aria-current="page">HEUTE</button>
-        <button disabled title="kommt noch">BLOCK</button>
+        <button data-seite="heute" aria-current="page">HEUTE</button>
+        <button data-seite="block">BLOCK</button>
         <button disabled title="kommt noch">ORGA</button>
         <button disabled title="kommt noch">EINGANG</button>
       </nav>
@@ -52,6 +52,7 @@
 
   <div id="meldungen"></div>
 
+  <div id="seiteHeute">
   <div class="gitter">
 
     <!-- Kalender ------------------------------------------------------- -->
@@ -113,6 +114,51 @@
   <section class="kacheln">
     <div class="netz" id="faecher"></div>
   </section>
+  </div><!-- /seiteHeute -->
+
+  <div id="seiteBlock" hidden>
+    <section class="karte blockkopf">
+      <div class="zeile">
+        <span class="name" id="blockName">…</span>
+        <span class="karte-notiz" id="blockWoche"></span>
+        <div class="dehnen"></div>
+        <span class="karte-marke">PHASE</span>
+      </div>
+      <div class="phasen" id="blockPhasen"></div>
+    </section>
+
+    <div class="klausuren" id="klausuren"></div>
+
+    <section class="karte polster">
+      <div class="karte-kopf schlicht">
+        <span class="karte-titel">Landebahn</span>
+        <span class="karte-notiz-lang">Balkenlänge = <b>noch benötigte Lerntage</b>, nicht Fortschritt</span>
+      </div>
+      <div id="landebahn"></div>
+    </section>
+
+    <section>
+      <div class="karte-marke abstand">FÄCHER IM BLOCK</div>
+      <div class="fachnetz" id="blockFaecher"></div>
+    </section>
+
+    <div class="unten">
+      <section class="karte polster">
+        <div class="karte-kopf schlicht">
+          <span class="karte-titel">Querverbindungen</span>
+          <span class="karte-notiz-lang">fächerübergreifend gestellt — überproportional wertvoll</span>
+        </div>
+        <div id="quer"></div>
+      </section>
+      <section class="karte polster ruhend">
+        <div class="karte-kopf schlicht">
+          <span class="karte-titel">Ruhende Fächer</span>
+          <span class="karte-notiz-lang">Keine Lehre in diesem Block — werden trotzdem geprüft.</span>
+        </div>
+        <div id="ruhend"></div>
+      </section>
+    </div>
+  </div><!-- /seiteBlock -->
 </div>
 
 <script src="./app.js"></script>

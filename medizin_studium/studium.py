@@ -16,7 +16,7 @@ Zwei Regeln durchziehen die ganze Datei:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from .vault import Eintrag, Vault, liste_aus_frontmatter
@@ -198,11 +198,24 @@ class Fachstand:
     aeltestes_offen: dict | None
     tage_bis_klausur: int | None
     ohne_anki: int
+    bloecke: list[str] = field(default_factory=list)
+    eigene_klausur: str | None = None
+    anwesenheit: dict = field(default_factory=dict)
 
     @property
     def hat_nenner(self) -> bool:
         """Gibt es überhaupt eine Stoffliste?"""
         return self.themen_gesamt > 0
+
+    @property
+    def lerntage_noetig(self) -> int | None:
+        """Ein Lerntag je Thema, das noch nicht bei Anki angekommen ist.
+
+        Die Annahme „ein Thema = ein Lerntag" ist grob, aber sie steht in der
+        Oberfläche daneben. Alles Feinere wäre erfunden — es gibt keine Daten
+        darüber, wie lange Till je Thema tatsächlich braucht.
+        """
+        return self.ohne_anki if self.hat_nenner else None
 
     @property
     def takt(self) -> float | None:
@@ -219,10 +232,37 @@ class Fachstand:
         return "gruen" if t > 2 else "gelb" if t >= 1 else "rot"
 
 
+def anwesenheit_je_fach(v: Vault, block: str | None = None) -> dict[str, dict]:
+    """Gezählte Termine je Fach aus ``Anwesenheit.csv``.
+
+    ``erfasst`` ist die wichtigste Zahl: ein Tag ohne Zeile gilt als **nicht
+    erfasst**, nie als gefehlt. Ohne diese Unterscheidung meldete die App
+    Fehltage, die nur Lücken in der Erfassung sind — und daran hängt die
+    Prüfungszulassung.
+    """
+    zaehler: dict[str, dict] = {}
+    for reihe in v.anwesenheit():
+        fach = (reihe.get("fach") or "").strip()
+        if not fach:
+            continue
+        if block and (reihe.get("block") or "").strip() not in ("", block):
+            continue
+        stand = zaehler.setdefault(fach, {
+            "erfasst": 0, "anwesend": 0, "gefehlt": 0,
+            "entschuldigt": 0, "nicht_pflicht": 0,
+        })
+        stand["erfasst"] += 1
+        status = (reihe.get("status") or "").strip()
+        if status in stand:
+            stand[status] += 1
+    return zaehler
+
+
 def fachstand(v: Vault, heute: date | None = None) -> list[Fachstand]:
     heute = heute or date.today()
     themen = v.lernstand()
     bloecke = {b.get("id"): b for b in v.themenbloecke()}
+    anwesend = anwesenheit_je_fach(v)
 
     stand: list[Fachstand] = []
     for f in v.faecher():
@@ -269,6 +309,9 @@ def fachstand(v: Vault, heute: date | None = None) -> list[Fachstand]:
             aeltestes_offen=aeltestes,
             tage_bis_klausur=tage,
             ohne_anki=sum(1 for t in meine if not t.wert("anki")),
+            bloecke=liste_aus_frontmatter(f.get("bloecke")),
+            eigene_klausur=f.get("klausur") or None,
+            anwesenheit=anwesend.get(fid, {}),
         ))
     return stand
 
@@ -303,6 +346,9 @@ def blockuhr(v: Vault, heute: date | None = None) -> dict | None:
             "id": b.get("id"),
             "name": b.get("name"),
             "phase": phase,
+            "beginn": b.get("beginn"),
+            "ende": b.get("ende"),
+            "tage_bis_beginn": (beginn - heute).days if heute < beginn else 0,
             "tag": max(0, vergangen + 1),
             "tage_gesamt": gesamt,
             "woche": max(1, vergangen // 7 + 1),
@@ -315,6 +361,89 @@ def blockuhr(v: Vault, heute: date | None = None) -> dict | None:
             "platzhalter": _ja(b.get("platzhalter")),
         }
     return None
+
+
+def querverbindungen(v: Vault) -> list[dict]:
+    """Themen, die in mehreren Fächern auf derselben Wiki-Seite landen.
+
+    Es gibt kein Feld „Querverbindung" im Vault, und eines zu erfinden hieße,
+    Till müsste es pflegen. Stattdessen wird abgeleitet: verweisen Themen aus
+    zwei verschiedenen Fächern auf dieselbe `wiki`-Seite, ist das die
+    Querverbindung. Fächerübergreifend gestellte Fragen hängen genau daran.
+    """
+    nach_seite: dict[str, set[str]] = {}
+    for t in v.lernstand():
+        seite, fach = t.wert("wiki"), t.wert("fach")
+        if seite and fach:
+            nach_seite.setdefault(seite, set()).add(fach)
+    return sorted(
+        ({"titel": seite, "faecher": sorted(faecher)}
+         for seite, faecher in nach_seite.items() if len(faecher) > 1),
+        key=lambda q: (-len(q["faecher"]), q["titel"]),
+    )
+
+
+def landebahn(v: Vault, heute: date | None = None) -> dict:
+    """Wie viele Lerntage jedes Fach noch braucht — gegen die Zeit gestellt.
+
+    Die Balkenlänge ist ausdrücklich **nicht** Fortschritt. Ein Fortschrittsbalken
+    wächst mit dem Semester von allein und sagt nichts darüber, ob es reicht.
+    """
+    heute = heute or date.today()
+    stand = fachstand(v, heute)
+    uhr = blockuhr(v, heute)
+    # Bezug ist die Blockklausur, nicht der erstbeste Termin, den ein Fach
+    # zufällig trägt. Med. Terminologie hat einen eigenen, früheren — der darf
+    # nicht zum Maßstab für alle anderen werden.
+    bis_klausur = uhr["tage_bis_klausur"] if uhr else None
+
+    zeilen = [
+        {"id": s.id, "name": s.name, "tage": s.lerntage_noetig,
+         "platzhalter": s.platzhalter, "ampel": s.ampel,
+         "tage_bis_klausur": s.tage_bis_klausur,
+         "eigener_termin": s.eigene_klausur}
+        for s in stand if s.hat_nenner
+    ]
+    zeilen.sort(key=lambda z: -(z["tage"] or 0))
+    summe = sum(z["tage"] or 0 for z in zeilen)
+    return {
+        "hat_nenner": bool(zeilen),
+        "zeilen": zeilen,
+        "summe_tage": summe if zeilen else None,
+        "tage_bis_klausur": bis_klausur,
+        # Kein Urteil ohne beide Zahlen. „Reicht" oder „reicht nicht" braucht
+        # einen Nenner; ohne Stoffliste steht hier nichts.
+        "reicht": None if not zeilen or bis_klausur is None else summe <= bis_klausur,
+    }
+
+
+def block_zustand(v: Vault, heute: date | None = None) -> dict:
+    """Alles für die Seite „Block"."""
+    heute = heute or date.today()
+    uhr = blockuhr(v, heute)
+    stand = fachstand(v, heute)
+    laufend = uhr["id"] if uhr else None
+
+    def als_dict(s: Fachstand) -> dict:
+        return s.__dict__ | {"hat_nenner": s.hat_nenner, "takt": s.takt,
+                             "ampel": s.ampel, "lerntage_noetig": s.lerntage_noetig}
+
+    aktiv = [s for s in stand if not laufend or laufend in s.bloecke]
+    ruhend = [s for s in stand if laufend and laufend not in s.bloecke]
+
+    return {
+        "heute": heute.isoformat(),
+        "block": uhr,
+        "faecher": [als_dict(s) for s in aktiv],
+        "ruhend": [als_dict(s) for s in ruhend],
+        # Fächer mit eigenem Termin laufen nicht in der Blockklausur mit.
+        "eigene_klausuren": [als_dict(s) for s in stand if s.eigene_klausur],
+        "landebahn": landebahn(v, heute),
+        "querverbindungen": querverbindungen(v),
+        "anwesenheit_erfasst": sum(
+            (s.anwesenheit or {}).get("erfasst", 0) for s in stand
+        ),
+    }
 
 
 # ---------------------------------------------------------------------------

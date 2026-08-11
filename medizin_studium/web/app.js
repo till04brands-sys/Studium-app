@@ -23,10 +23,12 @@ const STUNDE_VON_VORGABE = 8;
 const STUNDE_BIS_VORGABE = 18;
 
 const zustand = {
+  seite: "heute",
   tag: null,          // null = heute
   sicht: "woche",
   nurStudium: false,
-  daten: null,
+  daten: null,        // /api/zustand
+  block: null,        // /api/block
   laedt: false,
 };
 
@@ -59,17 +61,24 @@ function langesDatum(iso) {
 }
 
 function tageWort(n) { return n === 1 ? "1 Tag" : `${n} Tage`; }
+function tagenWort(n) { return n === 1 ? "einem Tag" : `${n} Tagen`; }
 
 /* --------------------------------------------------------------- Laden --- */
+
+async function holen(weg) {
+  const antwort = await fetch(weg + (zustand.tag ? `?tag=${zustand.tag}` : ""), { cache: "no-store" });
+  if (!antwort.ok) throw new Error(`Server antwortet mit ${antwort.status}`);
+  return antwort.json();
+}
 
 async function laden() {
   if (zustand.laedt) return;
   zustand.laedt = true;
-  const ziel = "/api/zustand" + (zustand.tag ? `?tag=${zustand.tag}` : "");
   try {
-    const antwort = await fetch(ziel, { cache: "no-store" });
-    if (!antwort.ok) throw new Error(`Server antwortet mit ${antwort.status}`);
-    zustand.daten = await antwort.json();
+    // „Heute" braucht Google und ist die teurere Anfrage; „Block" liest nur
+    // den Vault. Deshalb wird nur geholt, was die sichtbare Seite braucht.
+    if (zustand.seite === "block") zustand.block = await holen("/api/block");
+    else zustand.daten = await holen("/api/zustand");
     zeichnen();
   } catch (fehler) {
     zeigeMeldung("Der Server antwortet nicht", String(fehler.message || fehler), true);
@@ -87,8 +96,21 @@ function zeigeMeldung(titel, text, istFehler) {
 /* ------------------------------------------------------------ Zeichnen --- */
 
 function zeichnen() {
-  const d = zustand.daten;
   leeren(document.getElementById("meldungen"));
+  document.getElementById("seiteHeute").hidden = zustand.seite !== "heute";
+  document.getElementById("seiteBlock").hidden = zustand.seite !== "block";
+  // Die Wochennavigation gehört zum Kalender. Auf „Block" wäre sie ein Knopf,
+  // der sichtbar nichts tut.
+  for (const id of ["wocheZurueck", "wocheHeute", "wocheVor"]) {
+    document.getElementById(id).hidden = zustand.seite !== "heute";
+  }
+
+  if (zustand.seite === "block") {
+    if (zustand.block) blockZeichnen(zustand.block);
+    if (zustand.daten) kopfZeichnen(zustand.daten);
+    return;
+  }
+  const d = zustand.daten;
   kopfZeichnen(d);
   rasterZeichnen(d);
   ohneZeitZeichnen(d);
@@ -531,6 +553,237 @@ function faecherZeichnen(d) {
   }
 }
 
+/* --------------------------------------------------------- Seite Block --- */
+
+function blockZeichnen(b) {
+  blockKopfZeichnen(b);
+  klausurenZeichnen(b);
+  landebahnZeichnen(b);
+  blockFaecherZeichnen(b);
+  querZeichnen(b);
+  ruhendZeichnen(b);
+  if (b.block && b.block.platzhalter) {
+    zeigeMeldung("Der Themenblock ist eine Vermutung",
+      "Beginn, Ende und Klausurtermin stammen aus der Recherche, nicht aus einem Dokument der Fakultät.", false);
+  }
+}
+
+function blockKopfZeichnen(b) {
+  const uhr = b.block;
+  document.getElementById("blockName").textContent = uhr ? uhr.name : "Kein Themenblock erfasst";
+  // Vor dem ersten Tag wäre „Woche 1 von 9 · Tag 0" schlicht falsch — der
+  // Block läuft dann noch gar nicht.
+  document.getElementById("blockWoche").textContent = !uhr ? ""
+    : uhr.tage_bis_beginn > 0
+      ? `beginnt in ${tagenWort(uhr.tage_bis_beginn)}, am ${uhr.beginn}`
+      : `Woche ${uhr.woche} von ${uhr.wochen_gesamt} · Tag ${uhr.tag} von ${uhr.tage_gesamt}`;
+
+  const ziel = document.getElementById("blockPhasen");
+  leeren(ziel);
+  if (!uhr) return;
+
+  const phasen = [
+    { name: "vor Beginn", tage: null },
+    { name: "Lehrbetrieb", tage: uhr.tage_lehrbetrieb },
+    { name: "Endspurt", tage: uhr.tage_endspurt },
+    { name: "Klausur", tage: null },
+  ];
+  const laufend = phasen.findIndex((p) => p.name === uhr.phase);
+  phasen.forEach((p, i) => {
+    const k = el("div", "phase" + (i === laufend ? " laeuft" : i < laufend ? " vorbei" : ""));
+    k.append(el("div", "n", p.name),
+             el("div", "t", p.tage === null || p.tage === undefined
+               ? (i === laufend ? "jetzt" : "—")
+               : `${p.tage} Tage`));
+    ziel.append(k);
+  });
+}
+
+function klausurenZeichnen(b) {
+  const ziel = document.getElementById("klausuren");
+  leeren(ziel);
+  const uhr = b.block;
+
+  const gross = el("div", "klausur-gross");
+  gross.append(el("div", "marke",
+    `BLOCKKLAUSUR · ${b.faecher.length} FÄCHER`));
+  const zeile = el("div", "zahlzeile");
+  if (uhr && uhr.tage_bis_klausur !== null && uhr.tage_bis_klausur !== undefined) {
+    zeile.append(el("span", "zahl", uhr.tage_bis_klausur));
+    const rechts = el("div");
+    rechts.append(el("div", "wann", `Tage · ${uhr.klausur}`));
+    if (uhr.tage_lehrbetrieb || uhr.tage_endspurt) {
+      rechts.append(el("div", "teil",
+        `${uhr.tage_lehrbetrieb} Tage Lehrbetrieb, danach ${uhr.tage_endspurt} Tage Endspurt`));
+    }
+    zeile.append(rechts);
+  } else {
+    zeile.append(el("span", "wann", "Kein Klausurtermin erfasst — unbekannt, nicht „keiner“."));
+  }
+  gross.append(zeile);
+  gross.append(el("div", "regel",
+    "Bestehen: ≥ 60 % hier und ≥ 60 % je Fach kumuliert über alle Blöcke."));
+  ziel.append(gross);
+
+  const eigene = b.eigene_klausuren || [];
+  if (!eigene.length) {
+    const kasten = el("div", "klausur-klein");
+    kasten.append(el("div", "karte-marke", "EIGENER TERMIN"),
+                  el("div", "hinweis", "Kein Fach mit eigener Klausur erfasst."));
+    ziel.append(kasten);
+    return;
+  }
+  for (const f of eigene) {
+    const kasten = el("div", "klausur-klein");
+    kasten.append(el("div", "karte-marke", "EIGENER TERMIN"), el("div", "fach", f.name));
+    const zz = el("div", "zahlzeile");
+    zz.append(el("span", "zahl", f.tage_bis_klausur !== null ? f.tage_bis_klausur : "?"),
+              el("span", "karte-notiz", f.eigene_klausur || "Datum unbekannt"));
+    kasten.append(zz, el("div", "hinweis",
+      "Eigene Klausur — läuft nicht in der Blockklausur mit."));
+    ziel.append(kasten);
+  }
+}
+
+function landebahnZeichnen(b) {
+  const ziel = document.getElementById("landebahn");
+  leeren(ziel);
+  const bahn = b.landebahn;
+
+  if (!bahn.hat_nenner) {
+    const kasten = el("div", "leerkasten");
+    kasten.append(el("b", null, "Stofflisten fehlen"),
+      el("p", null, "Ohne Themenzahl je Fach gibt es keinen Nenner — und ohne Nenner keinen Balken. " +
+                    "Kein „0 Tage“, sondern: noch nicht gemessen."));
+    ziel.append(kasten);
+    return;
+  }
+
+  const laengste = Math.max(bahn.tage_bis_klausur || 0, ...bahn.zeilen.map((z) => z.tage || 0), 1);
+  const behaelter = el("div", "bahn");
+  behaelter.style.paddingTop = "18px";
+
+  if (bahn.tage_bis_klausur !== null) {
+    const marke = el("div", "bahn-marke");
+    // Die Linie sitzt über der Spur, nicht über der Fachspalte — sonst
+    // vergleicht man Balken mit einer Skala, die woanders anfängt.
+    marke.style.left = `calc(200px + (100% - 320px) * ${bahn.tage_bis_klausur / laengste})`;
+    marke.style.top = "18px";
+    marke.append(el("span", null, "KLAUSUR"));
+    behaelter.append(marke);
+  }
+
+  for (const z of bahn.zeilen) {
+    const zeile = el("div", "bahn-zeile");
+    const fach = el("div", "fach");
+    fach.append(el("span", "strich"), el("span", null, z.name));
+    const spur = el("div", "bahn-spur");
+    const balken = el("div", "bahn-balken" + (z.ampel === "rot" ? " rot" : z.ampel === "gelb" ? " gelb" : ""));
+    balken.style.width = `${((z.tage || 0) / laengste) * 100}%`;
+    spur.append(balken);
+    // Ein Fach mit eigenem Termin misst sich nicht an der Blocklinie. Ohne
+    // diesen Hinweis läse man den Balken gegen das falsche Datum.
+    if (z.eigener_termin) {
+      const marke = el("span", "eigen-marke", `eigener Termin ${z.eigener_termin}`);
+      marke.style.left = `${((z.tage_bis_klausur || 0) / laengste) * 100}%`;
+      spur.append(marke);
+      fach.querySelector("span:last-child").title = `Eigene Klausur am ${z.eigener_termin}`;
+    }
+    zeile.append(fach, spur, el("div", "wert", `${z.tage} Lerntage`));
+    behaelter.append(zeile);
+  }
+  ziel.append(behaelter);
+
+  const summe = el("div", "bahn-summe" + (bahn.reicht === false ? " knapp" : ""));
+  const satz = bahn.tage_bis_klausur === null
+    ? "Ohne Klausurtermin lässt sich nicht sagen, ob das reicht."
+    : bahn.reicht
+      ? "Das passt, solange nichts dazukommt."
+      : "So reicht es nicht — entweder mehr Tage einplanen oder Themen zusammenlegen.";
+  const stark = el("b", null,
+    `Zusammen ${bahn.summe_tage} Lerntage benötigt` +
+    (bahn.tage_bis_klausur !== null ? `, ${bahn.tage_bis_klausur} Tage bis zur Klausur. ` : ". "));
+  summe.append(stark, document.createTextNode(satz));
+  summe.append(el("div", "karte-notiz-lang",
+    "Gerechnet mit einem Lerntag je Thema, das noch nicht bei Anki angekommen ist."));
+  ziel.append(summe);
+}
+
+function blockFaecherZeichnen(b) {
+  const ziel = document.getElementById("blockFaecher");
+  leeren(ziel);
+  if (!b.faecher.length) {
+    ziel.append(el("div", "karte-text", "Keine Fächer in diesem Block erfasst."));
+    return;
+  }
+  for (const f of b.faecher) ziel.append(fachkarte(f));
+}
+
+function fachkarte(f) {
+  const karte = el("div", "fachkarte" + (f.platzhalter ? " platzhalter" : ""));
+  const oben = el("div", "oben");
+  oben.append(el("span", "strich"), el("span", "name", f.name), el("span", "ampel " + (f.ampel || "")));
+  karte.append(oben);
+
+  const stufen = el("div", "stufen");
+  for (const name of STUFEN) {
+    const wert = (f.stufen || {})[name] || 0;
+    const anteil = f.themen_gesamt ? wert / f.themen_gesamt : 0;
+    const s = el("span", "stufe" + (anteil >= 1 ? " voll" : anteil > 0 ? " teil" : ""));
+    s.title = `${name}: ${wert} von ${f.themen_gesamt || "?"}`;
+    stufen.append(s);
+  }
+  karte.append(stufen);
+
+  const zahlen = el("div", "zahlen");
+  zahlen.append(
+    el("span", null, f.hat_nenner ? `${f.rueckstand} im Rückstand` : "Stoffliste fehlt"),
+    el("span", null, f.takt ? `${f.takt} T/Thema` : ""),
+  );
+  karte.append(zahlen);
+
+  const a = f.anwesenheit || {};
+  karte.append(el("div", "anw", a.erfasst
+    ? `${a.anwesend || 0} anwesend · ${a.gefehlt || 0} gefehlt (${a.erfasst} erfasst)`
+    : "Anwesenheit nicht erfasst"));
+  return karte;
+}
+
+function querZeichnen(b) {
+  const ziel = document.getElementById("quer");
+  leeren(ziel);
+  const liste = b.querverbindungen || [];
+  if (!liste.length) {
+    ziel.append(el("div", "karte-notiz-lang",
+      "Noch keine Themen erfasst — Querverbindungen entstehen erst daraus."));
+    return;
+  }
+  for (const q of liste) {
+    const zeile = el("div", "quer-zeile");
+    zeile.append(el("span", "titel", q.titel));
+    const marken = el("div", "marken");
+    for (const fach of q.faecher) marken.append(el("span", "quer-marke", fach));
+    zeile.append(marken);
+    ziel.append(zeile);
+  }
+}
+
+function ruhendZeichnen(b) {
+  const ziel = document.getElementById("ruhend");
+  leeren(ziel);
+  const liste = b.ruhend || [];
+  if (!liste.length) {
+    ziel.append(el("div", "karte-notiz-lang", "Alle erfassten Fächer laufen in diesem Block."));
+    return;
+  }
+  for (const f of liste) {
+    const zeile = el("div", "ruhe-zeile");
+    zeile.append(el("span", "strich"), el("span", "titel", f.name),
+                 el("span", "karte-notiz", f.hat_nenner ? `${f.rueckstand} offen` : "nicht erfasst"));
+    ziel.append(zeile);
+  }
+}
+
 /* --- Hinweise --- */
 
 function hinweiseZeichnen(d) {
@@ -553,6 +806,17 @@ function hinweiseZeichnen(d) {
 /* ------------------------------------------------------------ Bedienung --- */
 
 function verdrahten() {
+  for (const knopf of document.querySelectorAll(".reiter button[data-seite]")) {
+    knopf.addEventListener("click", () => {
+      zustand.seite = knopf.dataset.seite;
+      for (const anderer of document.querySelectorAll(".reiter button[data-seite]")) {
+        if (anderer === knopf) anderer.setAttribute("aria-current", "page");
+        else anderer.removeAttribute("aria-current");
+      }
+      laden();
+    });
+  }
+
   document.getElementById("wocheZurueck").addEventListener("click", () => {
     zustand.tag = plusTage(zustand.tag || zustand.daten.heute, zustand.sicht === "tag" ? -1 : -7);
     laden();
