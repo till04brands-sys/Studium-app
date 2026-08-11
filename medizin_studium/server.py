@@ -31,7 +31,10 @@ from urllib.parse import parse_qs, urlparse
 
 from . import anki, studium
 from .konfig import konfig
-from .vault import Eintrag, Konflikt, Vault, feld_setzen
+from .vault import (
+    Eintrag, Konflikt, Vault, feld_setzen, jsonl_ersetzen, jsonl_lesen,
+    zeile_anhaengen,
+)
 
 WEB = Path(__file__).parent / "web"
 
@@ -120,6 +123,13 @@ class Griff(BaseHTTPRequestHandler):
             if pfad == "/api/block":
                 self.vault.vergessen()
                 return self._json(studium.block_zustand(self.vault, self._tag(abfrage)))
+            if pfad == "/api/orga":
+                self.vault.vergessen()
+                return self._json(studium.orga_zustand(
+                    self.vault, self._tag(abfrage), self._dienste()))
+            if pfad == "/api/eingang":
+                self.vault.vergessen()
+                return self._json(studium.eingang_zustand(self.vault))
             if pfad == "/api/kalender":
                 return self._json(self._kalender())
             if pfad in ("/", "/index.html"):
@@ -136,6 +146,8 @@ class Griff(BaseHTTPRequestHandler):
             koerper = json.loads(self.rfile.read(laenge) or b"{}")
             if weg.path == "/api/aufgabe":
                 return self._json(self._aufgabe_setzen(koerper))
+            if weg.path == "/api/vorschlag":
+                return self._json(self._vorschlag_entscheiden(koerper))
             self._json({"fehler": "unbekannter Weg"}, 404)
         except Konflikt as fehler:
             # Kein Serverfehler, sondern der Normalfall bei drei Schreibern.
@@ -205,6 +217,62 @@ class Griff(BaseHTTPRequestHandler):
         )
         self.vault.vergessen()
         return {"id": kennung, "erledigt": neu.wert("erledigt"), "zeile": neu.zeile}
+
+    def _dienste(self) -> dict:
+        from . import google_kalender
+
+        return {
+            "google": "ok" if google_kalender.angemeldet() else "aus",
+            "anki": anki.faellig()["stand"],
+        }
+
+    def _vorschlag_entscheiden(self, koerper: dict) -> dict:
+        """Der einzige Weg, auf dem die App etwas von sich aus anlegt.
+
+        Und auch der nur, wenn Till geklickt hat. „Übernehmen" hängt genau die
+        Zeile an, die in der Oberfläche stand — es wird nichts nachträglich
+        zusammengebaut.
+        """
+        kennung = koerper.get("id")
+        entscheidung = koerper.get("entscheidung")
+        if entscheidung not in ("uebernehmen", "verwerfen", "spaeter"):
+            return {"fehler": f"unbekannte Entscheidung: {entscheidung}"}
+
+        pfad = self.vault.vorschlaege_datei()
+        alle = jsonl_lesen(pfad)
+        treffer = next((s for s in alle if s.get("id") == kennung), None)
+        if treffer is None:
+            return {"fehler": f"Vorschlag {kennung} steht nicht im Eingang"}
+        if treffer.get("stand") not in (None, "offen", "spaeter"):
+            return {"fehler": f"Vorschlag {kennung} ist schon {treffer['stand']}"}
+
+        geschrieben = None
+        if entscheidung == "uebernehmen":
+            ziel = treffer.get("ziel") or {}
+            datei, zeile = ziel.get("datei"), ziel.get("zeile")
+            if not datei or not zeile:
+                return {"fehler": "Der Vorschlag nennt keine Zieldatei oder keine Zeile"}
+            # Kein Schreiben außerhalb des Vaults, auch nicht über ../ — und
+            # die Absage nennt keine Pfade, die niemanden etwas angehen.
+            volle = (self.vault.wurzel / datei).resolve()
+            try:
+                volle.relative_to(self.vault.wurzel.resolve())
+            except ValueError:
+                return {"fehler": f"Zieldatei liegt außerhalb des Vaults: {datei}"}
+            if not volle.is_file():
+                return {"fehler": f"Zieldatei gibt es nicht: {datei}"}
+            zeile_anhaengen(volle, zeile)
+            geschrieben = datei
+
+        treffer["stand"] = {"uebernehmen": "uebernommen",
+                            "verwerfen": "verworfen",
+                            "spaeter": "spaeter"}[entscheidung]
+        treffer["entschieden"] = date.today().isoformat()
+        # Verworfenes bleibt stehen. Gelöscht schlüge derselbe Vorschlag beim
+        # nächsten Abgleich wieder auf.
+        jsonl_ersetzen(pfad, alle)
+        self.vault.vergessen()
+        return {"id": kennung, "stand": treffer["stand"], "geschrieben": geschrieben}
 
     def log_message(self, format: str, *args) -> None:
         if "/api/" in str(args[0] if args else ""):

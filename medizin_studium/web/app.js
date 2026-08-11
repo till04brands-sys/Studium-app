@@ -29,6 +29,8 @@ const zustand = {
   nurStudium: false,
   daten: null,        // /api/zustand
   block: null,        // /api/block
+  orga: null,         // /api/orga
+  eingang: null,      // /api/eingang
   laedt: false,
 };
 
@@ -78,6 +80,8 @@ async function laden() {
     // „Heute" braucht Google und ist die teurere Anfrage; „Block" liest nur
     // den Vault. Deshalb wird nur geholt, was die sichtbare Seite braucht.
     if (zustand.seite === "block") zustand.block = await holen("/api/block");
+    else if (zustand.seite === "orga") zustand.orga = await holen("/api/orga");
+    else if (zustand.seite === "eingang") zustand.eingang = await holen("/api/eingang");
     else zustand.daten = await holen("/api/zustand");
     zeichnen();
   } catch (fehler) {
@@ -97,16 +101,28 @@ function zeigeMeldung(titel, text, istFehler) {
 
 function zeichnen() {
   leeren(document.getElementById("meldungen"));
-  document.getElementById("seiteHeute").hidden = zustand.seite !== "heute";
-  document.getElementById("seiteBlock").hidden = zustand.seite !== "block";
-  // Die Wochennavigation gehört zum Kalender. Auf „Block" wäre sie ein Knopf,
-  // der sichtbar nichts tut.
+  // Eine Rückmeldung zu einer gerade getroffenen Entscheidung muss den
+  // Neuaufbau überleben — sonst blitzt sie auf und ist weg, bevor man liest.
+  if (zustand.hinweis) {
+    const h = zustand.hinweis;
+    zustand.hinweis = null;
+    zeigeMeldung(h.titel, h.text, h.fehler);
+  }
+  for (const [id, name] of [["seiteHeute", "heute"], ["seiteBlock", "block"],
+                            ["seiteOrga", "orga"], ["seiteEingang", "eingang"]]) {
+    document.getElementById(id).hidden = zustand.seite !== name;
+  }
+  // Die Wochennavigation gehört zum Kalender. Auf den anderen Seiten wäre sie
+  // ein Knopf, der sichtbar nichts tut.
   for (const id of ["wocheZurueck", "wocheHeute", "wocheVor"]) {
     document.getElementById(id).hidden = zustand.seite !== "heute";
   }
+  if (zustand.eingang) plaketteSetzen(zustand.eingang.offen);
 
-  if (zustand.seite === "block") {
-    if (zustand.block) blockZeichnen(zustand.block);
+  if (zustand.seite !== "heute") {
+    if (zustand.seite === "block" && zustand.block) blockZeichnen(zustand.block);
+    if (zustand.seite === "orga" && zustand.orga) orgaZeichnen(zustand.orga);
+    if (zustand.seite === "eingang" && zustand.eingang) eingangZeichnen(zustand.eingang);
     if (zustand.daten) kopfZeichnen(zustand.daten);
     return;
   }
@@ -781,6 +797,240 @@ function ruhendZeichnen(b) {
     zeile.append(el("span", "strich"), el("span", "titel", f.name),
                  el("span", "karte-notiz", f.hat_nenner ? `${f.rueckstand} offen` : "nicht erfasst"));
     ziel.append(zeile);
+  }
+}
+
+/* ---------------------------------------------------------- Seite Orga --- */
+
+const REGELN = [
+  "Was ein Datum hat, ist eine Frist. Was ein Zählwerk hat, ist ein Nachweis. Was ein Fenster hat, ist eine Anmeldung.",
+  "Ein Nachweis mit Frist 2028 hat 2026 nichts auf „Heute“ zu suchen. Dafür ist der Vorlauf da.",
+  "Jede Pflicht braucht eine Fundstelle. Ohne Beleg steht kein Datum da.",
+  "Leeres Datum heißt unbekannt, nicht „keine Frist“.",
+  "Der nächste konkrete Schritt gehört in die Aufgaben, nicht hierher.",
+];
+
+function orgaZeichnen(o) {
+  einrichtungZeichnen(o);
+  fristenListe("orgaFristen", o.fristen, fristZeile,
+    "Keine Fristen erfasst. Die App erfindet keine — bekannt ist hier nichts, nicht null.");
+  fristenListe("orgaNachweise", o.nachweise, nachweisZeile,
+    "Keine Nachweise erfasst.");
+  fristenListe("orgaAnmeldungen", o.anmeldungen, anmeldungZeile,
+    "Keine Anmeldungen erfasst.");
+
+  const ziel = document.getElementById("orgaRegeln");
+  leeren(ziel);
+  REGELN.forEach((text, i) => {
+    const k = el("div", "regel-kachel");
+    k.append(el("div", "nr", String(i + 1).padStart(2, "0")), el("div", "text", text));
+    ziel.append(k);
+  });
+}
+
+function einrichtungZeichnen(o) {
+  const ziel = document.getElementById("einrichtung");
+  leeren(ziel);
+  if (!o.einrichtung_offen) {
+    ziel.hidden = true;
+    return;
+  }
+  ziel.hidden = false;
+  const zeile = el("div", "zeile");
+  zeile.append(el("span", "karte-titel", "Studienstart"),
+               el("span", "karte-notiz-lang", "einmalig · verschwindet, sobald alles abgehakt ist"),
+               el("div", "dehnen"),
+               el("span", "karte-notiz",
+                  `${o.einrichtung.length - o.einrichtung_offen} von ${o.einrichtung.length}`));
+  ziel.append(zeile);
+
+  const netz = el("div", "schrittnetz");
+  for (const s of o.einrichtung) {
+    const k = el("div", "schritt" + (s.fertig ? " fertig" : ""));
+    const text = el("div");
+    text.append(el("span", "titel", s.titel), el("span", "hilfe", s.hilfe));
+    k.append(el("span", "punkt"), text);
+    netz.append(k);
+  }
+  ziel.append(netz);
+}
+
+function fristenListe(id, liste, bauer, leerText) {
+  const ziel = document.getElementById(id);
+  leeren(ziel);
+  if (!liste || !liste.length) {
+    ziel.append(el("div", "karte-text", leerText));
+    return;
+  }
+  const behaelter = el("div", "liste");
+  for (const f of liste) behaelter.append(bauer(f));
+  ziel.append(behaelter);
+}
+
+function fristZeile(f) {
+  const zeile = el("div", "orga-zeile");
+  const oben = el("div", "oben");
+  const rest = el("span", "rest" + (f.tage !== null && f.tage <= 30 ? " bald" : ""),
+                  f.tage === null ? "Datum unbekannt" : `in ${tagenWort(f.tage)}`);
+  oben.append(el("span", "titel", f.titel), rest);
+  zeile.append(oben);
+  zeile.append(el("div", "unten", f.frist || `${f.art} · ${f.frist_art}`));
+  if (f.regel) zeile.append(el("div", "regel", f.regel));
+  return zeile;
+}
+
+function nachweisZeile(f) {
+  const zeile = el("div", "orga-zeile");
+  const oben = el("div", "oben");
+  // Fehlt der Ist-Wert, steht „? von 90" da. Eine 0 hieße „nachgesehen,
+  // war null" — bei der Prüfungszulassung ist das nicht dasselbe.
+  const ist = f.ist === null || f.ist === undefined ? "?" : f.ist;
+  oben.append(el("span", "titel", f.titel),
+              el("span", "rest", `${ist} von ${f.soll ?? "?"} ${f.einheit || ""}`.trim()));
+  zeile.append(oben);
+
+  if (f.soll && f.ist !== null && f.ist !== undefined) {
+    const spur = el("div", "zaehlspur");
+    const balken = el("div");
+    balken.style.width = `${Math.min(100, (f.ist / f.soll) * 100)}%`;
+    spur.append(balken);
+    zeile.append(spur);
+  } else {
+    zeile.append(el("div", "unten", "noch nicht erfasst — unbekannt, nicht null"));
+  }
+  if (f.regel) zeile.append(el("div", "regel", f.regel));
+  return zeile;
+}
+
+function anmeldungZeile(f) {
+  const zeile = el("div", "orga-zeile");
+  const oben = el("div", "oben");
+  const beschriftung = { offen: "noch nicht offen", laeuft: "läuft", vorbei: "vorbei", unbekannt: "Fenster unbekannt" };
+  oben.append(el("span", "titel", f.titel),
+              el("span", "chip " + f.fenster_stand, beschriftung[f.fenster_stand]));
+  zeile.append(oben);
+  zeile.append(el("div", "unten", f.fenster_von || f.fenster_bis
+    ? `${f.fenster_von || "?"} bis ${f.fenster_bis || "?"}`
+    : "Zeitraum noch zu ermitteln"));
+  if (f.regel) zeile.append(el("div", "regel", f.regel));
+  return zeile;
+}
+
+/* ------------------------------------------------------- Seite Eingang --- */
+
+function plaketteSetzen(n) {
+  const p = document.getElementById("eingangZahl");
+  p.hidden = !n;
+  p.textContent = n || "";
+}
+
+function eingangZeichnen(e) {
+  const ziel = document.getElementById("eingangInhalt");
+  leeren(ziel);
+  plaketteSetzen(e.offen);
+
+  if (!e.offen) {
+    const leer = el("div", "eingang-leer");
+    leer.append(el("b", null, "Nichts im Eingang"),
+      el("p", null, "Es wartet nichts auf deine Entscheidung. Vorschläge entstehen aus dem " +
+                    "Stundenplan, aus Google und aus Notion — solange dort nichts Neues auftaucht, bleibt es hier leer."));
+    ziel.append(leer);
+    return;
+  }
+
+  if (e.konflikte.length) {
+    ziel.append(gruppe("Konflikte", "beide Fassungen bleiben stehen, bis du entscheidest",
+      e.konflikte.length, e.konflikte.map(konfliktZeile)));
+  }
+  const NAMEN = {
+    thema: "Themen", termin: "Termine", aufgabe: "Aufgaben",
+    frist: "Fristen", karte: "Anki-Karten", material: "Material",
+  };
+  for (const g of e.gruppen) {
+    ziel.append(gruppe(NAMEN[g.art] || g.art, "warten auf dein Ja", g.n,
+                       g.eintraege.map(vorschlagZeile)));
+  }
+}
+
+function gruppe(titel, unter, n, zeilen) {
+  const karte = el("section", "karte eingang-gruppe");
+  const kopf = el("div", "karte-kopf");
+  kopf.append(el("span", "karte-titel", titel), el("span", "karte-notiz-lang", unter),
+              el("div", "dehnen"), el("span", "karte-notiz", n));
+  karte.append(kopf);
+  const liste = el("div", "liste");
+  for (const z of zeilen) liste.append(z);
+  karte.append(liste);
+  return karte;
+}
+
+function vorschlagZeile(v) {
+  const zeile = el("div", "eingang-zeile");
+  zeile.append(el("span", "artmarke", v.art || "?"));
+
+  const mitte = el("div", "mitte");
+  mitte.append(el("div", "titel", v.titel));
+  if (v.detail) mitte.append(el("div", "detail", v.detail));
+  if (v.ziel && v.ziel.zeile) {
+    // Die Zeile, die tatsächlich angehängt wird — wörtlich. Wer zustimmt,
+    // soll vorher gesehen haben, was in seiner Datei landet.
+    mitte.append(el("div", "zielzeile", `${v.ziel.datei}\n${v.ziel.zeile}`));
+  }
+  zeile.append(mitte);
+
+  const knoepfe = el("div", "knopfreihe");
+  for (const [was, text, klasse] of [["uebernehmen", "Übernehmen", "ja"],
+                                     ["verwerfen", "Verwerfen", ""],
+                                     ["spaeter", "Später", ""]]) {
+    const k = el("button", klasse, text);
+    k.addEventListener("click", () => entscheiden(v, was, knoepfe, zeile));
+    knoepfe.append(k);
+  }
+  zeile.append(knoepfe);
+  return zeile;
+}
+
+function konfliktZeile(k) {
+  const zeile = el("div", "eingang-zeile");
+  zeile.append(el("span", "artmarke konflikt", "Konflikt"));
+  const mitte = el("div", "mitte");
+  mitte.append(el("div", "titel", k.zeile || k.id || "Konflikt"));
+  mitte.append(el("div", "detail",
+    `${k.datei || "?"} · ${k.art || "doppelt geändert"} · aufgetreten ${k.titel || "?"}`));
+  const gegen = el("div", "gegenueber");
+  for (const [wo, was] of [["HIER (Vault)", k.hier], ["DORT (" + (k.quelle || "extern") + ")", k.dort]]) {
+    const kasten = el("div");
+    kasten.append(el("div", "wo", wo), el("div", "was", was || "—"));
+    gegen.append(kasten);
+  }
+  mitte.append(gegen);
+  zeile.append(mitte);
+  // Konflikte werden noch nicht von hier aus entschieden — das würde in eine
+  // Markdown-Zeile schreiben, und dafür fehlt der Weg über die Prüfsumme.
+  zeile.append(el("div", "karte-notiz", "in Obsidian entscheiden"));
+  return zeile;
+}
+
+async function entscheiden(vorschlag, was, knoepfe, zeile) {
+  for (const k of knoepfe.querySelectorAll("button")) k.disabled = true;
+  try {
+    const antwort = await fetch("/api/vorschlag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: vorschlag.id, entscheidung: was }),
+    });
+    const ergebnis = await antwort.json();
+    if (!antwort.ok || ergebnis.fehler) throw new Error(ergebnis.fehler || antwort.status);
+    zustand.hinweis = ergebnis.geschrieben
+      ? { titel: "Übernommen", text: `Die Zeile steht jetzt in ${ergebnis.geschrieben}.` }
+      : { titel: was === "verwerfen" ? "Verworfen" : "Auf später gelegt",
+          text: was === "verwerfen"
+            ? "Der Vorschlag bleibt als verworfen vermerkt und kommt nicht wieder."
+            : "Der Vorschlag bleibt im Eingang stehen." };
+    laden();
+  } catch (fehler) {
+    zeigeMeldung("Ging nicht", String(fehler.message || fehler), true);
+    for (const k of knoepfe.querySelectorAll("button")) k.disabled = false;
   }
 }
 

@@ -479,6 +479,16 @@ def aufgaben_heute(v: Vault, heute: date | None = None) -> list[dict]:
     return liste
 
 
+def _fenster_stand(von: date | None, bis: date | None, heute: date) -> str:
+    if von is None and bis is None:
+        return "unbekannt"
+    if von and heute < von:
+        return "offen"
+    if bis and heute > bis:
+        return "vorbei"
+    return "laeuft"
+
+
 def fristen(v: Vault, heute: date | None = None) -> list[dict]:
     """Organisationspflichten, aufgeteilt nach Art.
 
@@ -502,7 +512,14 @@ def fristen(v: Vault, heute: date | None = None) -> list[dict]:
             "tage": tage,
             "soll": e.zahl("soll"), "ist": e.zahl("ist"),
             "einheit": e.wert("einheit"), "stelle": e.wert("stelle"),
-            "regel": e.wert("regel"),
+            "regel": e.wert("regel"), "beleg": e.wert("beleg"),
+            "fenster_von": e.wert("fenster_von"),
+            "fenster_bis": e.wert("fenster_bis"),
+            # offen / laeuft / vorbei — bei Anmeldungen zählt das Fenster,
+            # nicht ein Stichtag. Ein verpasstes Fenster ist nicht dasselbe
+            # wie eine verpasste Frist: es kommt wieder.
+            "fenster_stand": _fenster_stand(
+                _datum(e.wert("fenster_von")), _datum(e.wert("fenster_bis")), heute),
             # Ohne Frist ist nichts dringend, aber auch nichts erledigt.
             "sichtbar_auf_heute": bool(
                 tage is not None and vorlauf is not None and tage <= vorlauf
@@ -577,6 +594,99 @@ def _als_dict(t: Termin) -> dict:
     return t.__dict__ | {
         "tag": t.tag.isoformat(),
         "ersetzt": t.ersetzt.isoformat() if t.ersetzt else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Seite Orga
+# ---------------------------------------------------------------------------
+
+def einrichtung(v: Vault, dienste: dict) -> list[dict]:
+    """Was noch fehlt, damit die App etwas zu rechnen hat.
+
+    Sechs Schritte, und keiner davon braucht den amtlichen Stundenplan — sonst
+    stünde die App bis Oktober still. ``dienste`` reicht der Server herein; er
+    weiß, ob Google und Anki antworten, diese Schicht soll das nicht wissen.
+    """
+    themen = v.lernstand()
+    schritte = [
+        {"schluessel": "google", "titel": "Google-Kalender verbinden",
+         "fertig": dienste.get("google") == "ok",
+         "hilfe": "Damit die Woche zeigt, was wirklich ansteht."},
+        {"schluessel": "stundenplan", "titel": "Stundenplan eintragen",
+         "fertig": bool(v.stundenplan()),
+         "hilfe": "Wiederkehrende Veranstaltungen als Serien."},
+        {"schluessel": "faecher", "titel": "Fächer bestätigen",
+         "fertig": bool(v.faecher()) and not any(
+             _ja(f.get("platzhalter")) for f in v.faecher()),
+         "hilfe": "Acht Platzhalter stehen bereit — sie sind noch geraten."},
+        {"schluessel": "lernstand", "titel": "Stofflisten anlegen",
+         "fertig": bool(themen),
+         "hilfe": "Ein Thema je Vorlesung. Ohne sie gibt es keinen Nenner."},
+        {"schluessel": "anki", "titel": "Anki-Decks anlegen",
+         "fertig": dienste.get("anki") == "ok",
+         "hilfe": "Schema Medizin::<Fach>, Block und Thema als Schlagwörter."},
+        {"schluessel": "anwesenheit", "titel": "Anwesenheit erfassen",
+         "fertig": bool(v.anwesenheit()),
+         "hilfe": "Daran hängt die Prüfungszulassung."},
+    ]
+    return schritte
+
+
+def orga_zustand(v: Vault, heute: date | None = None, dienste: dict | None = None) -> dict:
+    """Alles für die Seite „Orga".
+
+    Die Aufteilung ist der Punkt: Eine Frist hat ein Datum, ein Nachweis hat
+    ein Zählwerk, eine Anmeldung hat ein Fenster. In einer Liste vermischt
+    hilft keine der drei Sorten weiter.
+    """
+    heute = heute or date.today()
+    alle = fristen(v, heute)
+    schritte = einrichtung(v, dienste or {})
+    return {
+        "heute": heute.isoformat(),
+        "fristen": [f for f in alle if f["art"] not in ("nachweis", "anmeldung")],
+        "nachweise": [f for f in alle if f["art"] == "nachweis"],
+        "anmeldungen": [f for f in alle if f["art"] == "anmeldung"],
+        "einrichtung": schritte,
+        "einrichtung_offen": sum(1 for s in schritte if not s["fertig"]),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Seite Eingang
+# ---------------------------------------------------------------------------
+
+def eingang_zustand(v: Vault) -> dict:
+    """Vorschläge und Konflikte, gruppiert nach Art.
+
+    Konflikte stehen bewusst zuoberst: Solange einer offen ist, ist die
+    betroffene Zeile für automatische Aufträge gesperrt.
+    """
+    vorschlaege = [
+        s for s in v.vorschlaege()
+        if s.get("stand", "offen") in ("offen", "spaeter")
+    ]
+    konflikte = [
+        {"id": e.id, "titel": e.titel, "datei": e.wert("datei"),
+         "zeile": e.wert("zeile"), "art": e.wert("art"),
+         "hier": e.wert("hier"), "dort": e.wert("dort"),
+         "quelle": e.wert("quelle"), "stand": e.wert("stand")}
+        for e in v.konflikte() if e.wert("stand") not in ("entschieden", "erledigt")
+    ]
+
+    gruppen: dict[str, list] = {}
+    for s in vorschlaege:
+        gruppen.setdefault(s.get("art", "sonstiges"), []).append(s)
+
+    return {
+        "konflikte": konflikte,
+        "gruppen": [
+            {"art": art, "n": len(liste), "eintraege": liste}
+            for art, liste in sorted(gruppen.items())
+        ],
+        "offen": len(vorschlaege) + len(konflikte),
+        "spaeter": sum(1 for s in vorschlaege if s.get("stand") == "spaeter"),
     }
 
 

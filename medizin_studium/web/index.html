@@ -19,8 +19,8 @@
       <nav class="reiter">
         <button data-seite="heute" aria-current="page">HEUTE</button>
         <button data-seite="block">BLOCK</button>
-        <button disabled title="kommt noch">ORGA</button>
-        <button disabled title="kommt noch">EINGANG</button>
+        <button data-seite="orga">ORGA</button>
+        <button data-seite="eingang">EINGANG<span class="plakette" id="eingangZahl" hidden></span></button>
       </nav>
       <div class="dehnen"></div>
       <div class="werkzeuge">
@@ -159,6 +159,48 @@
       </section>
     </div>
   </div><!-- /seiteBlock -->
+
+  <div id="seiteOrga" hidden>
+    <section class="karte einrichtung" id="einrichtung"></section>
+
+    <div class="orga-spalten">
+      <section class="karte">
+        <div class="karte-kopf gestapelt">
+          <span class="karte-titel">Fristen</span>
+          <span class="karte-notiz-lang">haben ein Datum · nach Datum sortiert</span>
+        </div>
+        <div id="orgaFristen"></div>
+      </section>
+      <section class="karte">
+        <div class="karte-kopf gestapelt">
+          <span class="karte-titel">Nachweise</span>
+          <span class="karte-notiz-lang">Stand und Ziel · lange kein Datum</span>
+        </div>
+        <div id="orgaNachweise"></div>
+      </section>
+      <section class="karte">
+        <div class="karte-kopf gestapelt">
+          <span class="karte-titel">Anmeldungen</span>
+          <span class="karte-notiz-lang">haben ein Zeitfenster</span>
+        </div>
+        <div id="orgaAnmeldungen"></div>
+      </section>
+    </div>
+
+    <section class="karte polster regeln">
+      <div class="karte-titel">Die Regeln, die diese Seite erträglich halten</div>
+      <div class="regelnetz" id="orgaRegeln"></div>
+    </section>
+  </div><!-- /seiteOrga -->
+
+  <div id="seiteEingang" hidden>
+    <section class="karte polster">
+      <div class="karte-titel">Eingang</div>
+      <p class="karte-notiz-lang breit">Der einzige Ort, an dem die App Schreibrechte einlöst.
+        Alles, was sie von sich aus erzeugt, wartet hier auf dein Ja.</p>
+    </section>
+    <div id="eingangInhalt"></div>
+  </div><!-- /seiteEingang -->
 </div>
 
 <script src="./app.js"></script>

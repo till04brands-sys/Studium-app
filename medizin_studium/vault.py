@@ -19,6 +19,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -254,6 +255,46 @@ def zeile_anhaengen(pfad: Path, zeile: str) -> None:
     pfad.write_text("\n".join(alle) + "\n", encoding="utf-8")
 
 
+def jsonl_lesen(pfad: Path) -> list[dict]:
+    """Eine JSONL-Datei zeilenweise. Kaputte Zeilen werden übersprungen.
+
+    Übersprungen, nicht geworfen: Ein einzelner beschädigter Vorschlag darf
+    nicht den ganzen Eingang unerreichbar machen.
+    """
+    if not pfad.exists():
+        return []
+    ergebnis = []
+    for zeile in pfad.read_text(encoding="utf-8").splitlines():
+        zeile = zeile.strip()
+        if not zeile:
+            continue
+        try:
+            ergebnis.append(json.loads(zeile))
+        except json.JSONDecodeError:
+            continue
+    return ergebnis
+
+
+def jsonl_anhaengen(pfad: Path, satz: dict) -> None:
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    with pfad.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(satz, ensure_ascii=False) + "\n")
+
+
+def jsonl_ersetzen(pfad: Path, saetze: list[dict]) -> None:
+    """Die Datei komplett neu schreiben.
+
+    Bei Markdown wäre das verboten (§11: zeilenweise ändern). Hier ist es
+    richtig: Diese Datei ist ausdrücklich maschinell, hat genau **einen**
+    Schreiber — die App — und keine Dokumentation, die erhalten bleiben müsste.
+    """
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    pfad.write_text(
+        "".join(json.dumps(s, ensure_ascii=False) + "\n" for s in saetze),
+        encoding="utf-8",
+    )
+
+
 def csv_lesen(pfad: Path) -> list[dict[str, str | None]]:
     """CSV als Liste von Zeilen. Leere Zellen werden ``None``, nie ``0``."""
     if not pfad.exists():
@@ -319,6 +360,15 @@ class Vault:
         if bereich is None:
             return alle
         return [e for e in alle if e.wert("bereich") == bereich]
+
+    def vorschlaege(self) -> list[dict]:
+        return jsonl_lesen(self.planer / "Sync" / "Vorschlaege.jsonl")
+
+    def vorschlaege_datei(self) -> Path:
+        return self.planer / "Sync" / "Vorschlaege.jsonl"
+
+    def konflikte(self) -> list[Eintrag]:
+        return self.eintraege(self.planer / "Sync" / "Konflikte.md")
 
     def stundenplan(self) -> list[Eintrag]:
         return self.eintraege(self.datei("Stundenplan.md"))
