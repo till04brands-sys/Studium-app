@@ -28,6 +28,7 @@
         <button id="wocheHeute" class="heute-zurueck">Heute</button>
         <button id="wocheVor" title="Woche vor">→</button>
         <button id="neuLaden" title="Vault neu einlesen">Neu laden</button>
+        <button data-seite="einstellungen">Einstellungen</button>
       </div>
     </div>
 
@@ -193,6 +194,16 @@
     </section>
   </div><!-- /seiteOrga -->
 
+  <div id="seiteEinstellungen" hidden>
+    <section class="karte polster">
+      <div class="karte-titel">Einstellungen</div>
+      <p class="karte-notiz-lang breit">Nur Anzeige. Geändert wird in
+        <code id="konfigPfad">app-config.json</code> — dieselbe Datei lesen auch Jarvis
+        und die anderen Apps. Ein zweiter Weg dorthin wäre eine zweite Wahrheit.</p>
+    </section>
+    <div id="einstellungenInhalt"></div>
+  </div><!-- /seiteEinstellungen -->
+
   <div id="seiteEingang" hidden>
     <section class="karte polster">
       <div class="karte-titel">Eingang</div>
@@ -202,6 +213,17 @@
     <div id="eingangInhalt"></div>
   </div><!-- /seiteEingang -->
 </div>
+
+<dialog id="overlay">
+  <div class="ov-kopf">
+    <span class="strich" id="ovStrich"></span>
+    <span class="ov-titel" id="ovTitel">…</span>
+    <span class="karte-notiz-lang" id="ovUnter"></span>
+    <div class="dehnen"></div>
+    <button class="ov-zu" id="ovZu">Esc · schließen</button>
+  </div>
+  <div class="ov-koerper" id="ovKoerper"></div>
+</dialog>
 
 <script src="./app.js"></script>
 </body>

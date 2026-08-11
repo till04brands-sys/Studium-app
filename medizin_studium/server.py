@@ -30,7 +30,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import anki, studium
-from .konfig import konfig
+from .konfig import konfig, konfig_pfad
 from .vault import (
     Eintrag, Konflikt, Vault, feld_setzen, jsonl_ersetzen, jsonl_lesen,
     zeile_anhaengen,
@@ -130,6 +130,16 @@ class Griff(BaseHTTPRequestHandler):
             if pfad == "/api/eingang":
                 self.vault.vergessen()
                 return self._json(studium.eingang_zustand(self.vault))
+            if pfad == "/api/fach":
+                self.vault.vergessen()
+                kennung = (abfrage.get("id") or [""])[0]
+                detail = studium.fach_detail(self.vault, kennung, self._tag(abfrage))
+                if detail is None:
+                    return self._json({"fehler": f"Kein Fach mit der ID {kennung!r}"}, 404)
+                detail["anki"] = anki.faellig()
+                return self._json(detail)
+            if pfad == "/api/einstellungen":
+                return self._json(self._einstellungen())
             if pfad == "/api/kalender":
                 return self._json(self._kalender())
             if pfad in ("/", "/index.html"):
@@ -217,6 +227,38 @@ class Griff(BaseHTTPRequestHandler):
         )
         self.vault.vergessen()
         return {"id": kennung, "erledigt": neu.wert("erledigt"), "zeile": neu.zeile}
+
+    def _einstellungen(self) -> dict:
+        """Was verbunden ist und wo die Daten liegen.
+
+        Absichtlich nur Anzeige. Wer den Vault-Pfad oder den Port ändern will,
+        ändert ``app-config.json`` — eine Datei, die auch Jarvis und die
+        anderen Apps lesen. Ein zweiter Weg dorthin wäre eine zweite Wahrheit.
+        """
+        from . import google_kalender
+
+        einstellung = konfig()
+        gcal = einstellung.get("dienste", {}).get("google_calendar", {})
+        ankistand = anki.faellig()
+        kalender = self._kalender()
+        return {
+            "vault": str(self.vault.wurzel),
+            "konfig": str(konfig_pfad()),
+            "port": einstellung["apps"]["studium"]["port"],
+            "google": {
+                "stand": "ok" if google_kalender.angemeldet() else "nicht_eingerichtet",
+                "modus": gcal.get("modus", "lesend"),
+                "zugang": gcal.get("zugang"),
+                "kalender": kalender.get("kalender", []),
+                "bereiche": gcal.get("bereiche", {}),
+            },
+            "anki": {"stand": ankistand["stand"], "text": ankistand.get("text"),
+                     "adresse": einstellung["dienste"]["anki"]["adresse"],
+                     "deck_praefix": einstellung["dienste"]["anki"]["deck_praefix"]},
+            "notion": {"stand": "nicht_eingerichtet",
+                       "hinweis": einstellung["dienste"]["notion"].get("hinweis")},
+            "schnappschuss": einstellung.get("schnappschuss", {}),
+        }
 
     def _dienste(self) -> dict:
         from . import google_kalender

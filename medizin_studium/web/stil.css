@@ -505,6 +505,87 @@ a:hover { color: var(--braun); }
 .eingang-leer b { font-family: var(--serif); font-size: 20px; font-weight: 400; }
 .eingang-leer p { font-size: 13.5px; color: var(--grau); margin: 7px auto 0; line-height: 1.5; max-width: 60ch; }
 
+/* ------------------------------------------------------------- Overlay --- */
+/* <dialog> statt eines eigenen Aufbaus: Fokusfang, Esc und die Sperre des
+   Hintergrunds kommen vom Browser und funktionieren mit Tastatur. */
+#overlay {
+  width: min(1180px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  padding: 0; border: 1px solid var(--linie); border-radius: 12px;
+  background: var(--karte); color: var(--tinte);
+  box-shadow: 0 30px 70px rgba(23, 35, 58, .28);
+  overflow: auto;
+}
+#overlay::backdrop { background: rgba(23, 28, 40, .42); backdrop-filter: blur(2px); }
+
+.ov-kopf {
+  position: sticky; top: 0; z-index: 5; background: var(--karte);
+  border-bottom: 1px solid var(--linie-hell);
+  display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+}
+.ov-titel { font-family: var(--serif); font-size: 20px; }
+.ov-zu {
+  background: var(--linie-zart); border: 1px solid var(--linie); border-radius: 6px;
+  padding: 5px 11px; font-size: 11.5px; font-family: var(--mono); color: var(--grau);
+}
+.ov-koerper { padding: 18px 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+
+.ov-reihe { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.ov-drei { display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 12px; }
+.ov-zwei { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; align-items: start; }
+.ov-kasten { background: var(--kachel); border: 1px solid var(--linie); border-radius: 9px; padding: 13px 15px; }
+.ov-kasten.dunkel { background: var(--navy); color: #f0ebe1; border-color: var(--navy); }
+.ov-kasten.warm { background: #f7f3ec; }
+.ov-kasten .marke { font-size: 11px; font-family: var(--mono); letter-spacing: .08em; color: var(--grau-hell); }
+.ov-kasten.dunkel .marke { color: inherit; opacity: .7; }
+.ov-gross { font-family: var(--serif); font-size: 38px; line-height: 1; }
+.ov-mitzeile { display: flex; align-items: baseline; gap: 8px; margin-top: 9px; }
+.ov-mitzeile span { font-size: 12.5px; line-height: 1.35; }
+.ov-satz { font-size: 12.5px; margin-top: 9px; line-height: 1.45; color: var(--grau); }
+.ov-kasten.dunkel .ov-satz { color: inherit; opacity: .85; }
+
+.stufensaeulen { display: flex; gap: 6px; margin-top: 11px; }
+.stufensaeule { flex: 1; }
+.stufensaeule .spur { height: 44px; background: var(--linie); border-radius: 4px; display: flex; align-items: flex-end; overflow: hidden; }
+.stufensaeule .fuell { width: 100%; background: var(--navy); border-radius: 0 0 4px 4px; }
+.stufensaeule .name { font-size: 11px; margin-top: 6px; }
+.stufensaeule.optional .name { color: var(--grau-hell); font-style: italic; }
+.stufensaeule .wert { font-size: 12.5px; font-family: var(--mono); margin-top: 1px; }
+
+.themenliste { background: var(--kachel); border: 1px solid var(--linie); border-radius: 9px; }
+.themenzeile { display: flex; align-items: center; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--linie-zart); }
+.themenzeile:last-child { border-bottom: none; }
+.themenzeile .titel { font-size: 13px; flex: 1; min-width: 0; }
+.themenzeile .stand { font-size: 11px; font-family: var(--mono); min-width: 96px; text-align: right; color: var(--grau-hell); }
+.themenzeile .stand.spaet { color: var(--rot); }
+.stufenpunkte { display: flex; gap: 3px; }
+.stufenpunkt {
+  width: 17px; height: 17px; border-radius: 4px; font-size: 9.5px;
+  font-family: var(--mono); display: flex; align-items: center; justify-content: center;
+  background: var(--linie); color: var(--grau-hell);
+}
+.stufenpunkt.da { background: var(--navy); color: #f2ede3; }
+
+.materialzeile { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 3px 0; }
+.materialzeile .typ {
+  font-size: 10px; font-family: var(--mono); color: var(--grau-hell);
+  background: var(--linie-zart); border-radius: 3px; padding: 1px 5px;
+}
+.materialzeile .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.punktezeile { display: flex; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--linie-zart); }
+.punktezeile:last-child { border-bottom: none; }
+.punktezeile .block { font-family: var(--mono); font-size: 12px; color: var(--grau-hell); min-width: 52px; }
+.punktezeile .wert { margin-left: auto; font-family: var(--mono); font-size: 12.5px; }
+.punktezeile .wert.offen { color: var(--grau-hell); }
+
+.fachwechsel { display: flex; gap: 5px; flex-wrap: wrap; padding-top: 2px; }
+.fachwechsel button {
+  background: var(--kachel); border: 1px solid var(--linie); border-radius: 6px;
+  padding: 5px 10px; font-size: 12px; color: var(--grau);
+}
+.fachwechsel button[aria-current="true"] { background: var(--navy); border-color: var(--navy); color: #f2ede3; }
+
 /* -------------------------------------------------------------- Sonstiges --- */
 .meldung {
   background: var(--karte); border: 1px solid #d6cfc3; border-left: 3px solid var(--braun);

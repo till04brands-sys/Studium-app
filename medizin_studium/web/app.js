@@ -31,6 +31,7 @@ const zustand = {
   block: null,        // /api/block
   orga: null,         // /api/orga
   eingang: null,      // /api/eingang
+  einstellungen: null,
   laedt: false,
 };
 
@@ -82,6 +83,7 @@ async function laden() {
     if (zustand.seite === "block") zustand.block = await holen("/api/block");
     else if (zustand.seite === "orga") zustand.orga = await holen("/api/orga");
     else if (zustand.seite === "eingang") zustand.eingang = await holen("/api/eingang");
+    else if (zustand.seite === "einstellungen") zustand.einstellungen = await holen("/api/einstellungen");
     else zustand.daten = await holen("/api/zustand");
     zeichnen();
   } catch (fehler) {
@@ -109,7 +111,8 @@ function zeichnen() {
     zeigeMeldung(h.titel, h.text, h.fehler);
   }
   for (const [id, name] of [["seiteHeute", "heute"], ["seiteBlock", "block"],
-                            ["seiteOrga", "orga"], ["seiteEingang", "eingang"]]) {
+                            ["seiteOrga", "orga"], ["seiteEingang", "eingang"],
+                            ["seiteEinstellungen", "einstellungen"]]) {
     document.getElementById(id).hidden = zustand.seite !== name;
   }
   // Die Wochennavigation gehört zum Kalender. Auf den anderen Seiten wäre sie
@@ -123,6 +126,7 @@ function zeichnen() {
     if (zustand.seite === "block" && zustand.block) blockZeichnen(zustand.block);
     if (zustand.seite === "orga" && zustand.orga) orgaZeichnen(zustand.orga);
     if (zustand.seite === "eingang" && zustand.eingang) eingangZeichnen(zustand.eingang);
+    if (zustand.seite === "einstellungen" && zustand.einstellungen) einstellungenZeichnen(zustand.einstellungen);
     if (zustand.daten) kopfZeichnen(zustand.daten);
     return;
   }
@@ -478,6 +482,13 @@ async function abhaken(aufgabe, kaestchen, zeile) {
 
 /* --- Anki --- */
 
+/* „Anki läuft nicht" wäre falsch, wenn AnkiConnect antwortet und nur die
+   Sammlung zu ist. Beides heißt „Fälligkeit unbekannt", aber der Grund ist ein
+   anderer — und nur einer davon wird durch Anki-Starten besser. */
+function ankiUeberschrift(a) {
+  return a.stand === "aus" ? "Anki läuft nicht" : "Anki antwortet, liefert aber nichts";
+}
+
 function ankiZeichnen(d) {
   const ziel = document.getElementById("anki");
   leeren(ziel);
@@ -485,9 +496,9 @@ function ankiZeichnen(d) {
 
   if (a.stand !== "ok" && a.stand !== "leer") {
     const kasten = el("div", "warnkasten");
-    kasten.append(el("b", null, "Anki läuft nicht"),
-                  el("span", null, (a.text || "Keine Verbindung zu AnkiConnect.") +
-                     " Fälligkeit ist unbekannt — ausdrücklich nicht „0 fällig“."));
+    kasten.append(el("b", null, ankiUeberschrift(a)),
+                  el("span", null, `${a.text || "Keine Verbindung zu AnkiConnect."} ` +
+                     "Fälligkeit ist unbekannt — ausdrücklich nicht „0 fällig“."));
     ziel.append(kasten);
     return;
   }
@@ -546,8 +557,8 @@ function faecherZeichnen(d) {
   }
   for (const f of liste) {
     const kachel = el("button", "kachel" + (f.platzhalter ? " platzhalter" : ""));
-    kachel.disabled = true;
     kachel.title = f.platzhalter ? `${f.name} — nicht amtlich` : f.name;
+    kachel.addEventListener("click", () => fachOeffnen(f.id));
 
     const oben = el("div", "oben");
     oben.append(el("span", "strich"), el("span", "kurz", f.name),
@@ -736,7 +747,8 @@ function blockFaecherZeichnen(b) {
 }
 
 function fachkarte(f) {
-  const karte = el("div", "fachkarte" + (f.platzhalter ? " platzhalter" : ""));
+  const karte = el("button", "fachkarte" + (f.platzhalter ? " platzhalter" : ""));
+  karte.addEventListener("click", () => fachOeffnen(f.id));
   const oben = el("div", "oben");
   oben.append(el("span", "strich"), el("span", "name", f.name), el("span", "ampel " + (f.ampel || "")));
   karte.append(oben);
@@ -1034,6 +1046,259 @@ async function entscheiden(vorschlag, was, knoepfe, zeile) {
   }
 }
 
+/* --------------------------------------------------- Overlay: ein Fach --- */
+
+const STUFEN_NAMEN = { priming: "Priming", notizen: "Notizen", feynman: "Feynman",
+                       loci: "Loci", anki: "Anki" };
+
+async function fachOeffnen(id) {
+  const overlay = document.getElementById("overlay");
+  const koerper = document.getElementById("ovKoerper");
+  document.getElementById("ovTitel").textContent = "…";
+  document.getElementById("ovUnter").textContent = "";
+  leeren(koerper);
+  if (!overlay.open) overlay.showModal();
+
+  let f;
+  try {
+    // Der gewählte Tag muss mit: sonst zeigt das Overlay Rückstand und Takt
+    // von heute, während die Seite dahinter eine andere Woche zeigt.
+    const weg = `/api/fach?id=${encodeURIComponent(id)}`
+              + (zustand.tag ? `&tag=${zustand.tag}` : "");
+    const antwort = await fetch(weg, { cache: "no-store" });
+    f = await antwort.json();
+    if (!antwort.ok) throw new Error(f.fehler || antwort.status);
+  } catch (fehler) {
+    koerper.append(el("div", "karte-text", String(fehler.message || fehler)));
+    return;
+  }
+
+  document.getElementById("ovTitel").textContent = f.name;
+  document.getElementById("ovUnter").textContent = [
+    f.platzhalter ? "nicht amtlich" : null,
+    f.eigene_klausur ? `eigene Klausur ${f.eigene_klausur}` : null,
+    f.tage_bis_klausur !== null ? `Klausur in ${tagenWort(f.tage_bis_klausur)}` : "Klausurtermin unbekannt",
+  ].filter(Boolean).join(" · ");
+
+  koerper.append(fachKennzahlen(f));
+  if (f.punktekonto.zeilen.length) koerper.append(fachPunktekonto(f));
+  koerper.append(fachUnten(f));
+  koerper.append(fachWechsel(f));
+}
+
+function fachKennzahlen(f) {
+  const netz = el("div", "ov-drei");
+
+  // Stufen
+  const stufen = el("div", "ov-kasten");
+  stufen.append(el("div", "marke", "STUFEN"));
+  if (f.hat_nenner) {
+    const saeulen = el("div", "stufensaeulen");
+    for (const name of STUFEN) {
+      const wert = f.stufen[name] || 0;
+      const s = el("div", "stufensaeule" + (f.optionale_stufen.includes(name) ? " optional" : ""));
+      const spur = el("div", "spur");
+      const fuell = el("div", "fuell");
+      fuell.style.height = `${(wert / f.themen_gesamt) * 100}%`;
+      spur.append(fuell);
+      s.append(spur, el("div", "name", STUFEN_NAMEN[name]),
+               el("div", "wert", `${wert}/${f.themen_gesamt}`));
+      saeulen.append(s);
+    }
+    stufen.append(saeulen);
+    stufen.append(el("div", "ov-satz", "Loci ist optional — ein übersprungenes Loci ist kein Rückstand."));
+  } else {
+    stufen.append(el("div", "ov-satz",
+      "Stoffliste fehlt. Ohne Themenliste gibt es keinen Nenner — hier steht deshalb kein Balken bei 0 %."));
+  }
+  netz.append(stufen);
+
+  // Rückstand
+  const rueck = el("div", "ov-kasten" + (f.rueckstand > 0 ? " dunkel" : ""));
+  rueck.append(el("div", "marke", "RÜCKSTAND"));
+  if (f.hat_nenner) {
+    const zeile = el("div", "ov-mitzeile");
+    zeile.append(el("b", "ov-gross", f.rueckstand), el("span", null, "Themen ohne Notizen"));
+    rueck.append(zeile);
+    rueck.append(el("div", "ov-satz", f.aeltestes_offen
+      ? `Ältestes offenes Thema: ${f.aeltestes_offen.titel} (${f.aeltestes_offen.tage} Tage her)`
+      : "Kein Thema offen."));
+  } else {
+    rueck.append(el("div", "ov-satz", "unbekannt — nicht null, es ist nur nichts gemessen."));
+  }
+  netz.append(rueck);
+
+  // Takt
+  const takt = el("div", "ov-kasten");
+  takt.append(el("div", "marke", "TAKT"));
+  if (f.takt) {
+    const zeile = el("div", "ov-mitzeile");
+    zeile.append(el("b", "ov-gross", f.takt), el("span", null, "Tage je offenem Thema"));
+    takt.append(zeile);
+    takt.append(el("div", "ov-satz", f.takt > 2
+      ? "Genug Luft, solange nichts dazukommt."
+      : f.takt >= 1 ? "Eng. Ein Thema am Tag reicht gerade."
+                    : "Zu eng — so ist der Stoff bis zur Klausur nicht zu schaffen."));
+  } else {
+    takt.append(el("div", "ov-satz", f.hat_nenner
+      ? "Nicht berechenbar — es fehlt der Klausurtermin oder es ist nichts mehr offen."
+      : "unbekannt"));
+  }
+  netz.append(takt);
+  return netz;
+}
+
+function fachPunktekonto(f) {
+  const k = f.punktekonto;
+  const kasten = el("div", "ov-kasten warm");
+  kasten.append(el("div", "marke", "ÜBER MEHRERE BLÖCKE · PUNKTEKONTO"));
+  for (const z of k.zeilen) {
+    const zeile = el("div", "punktezeile");
+    zeile.append(el("span", "block", (z.block || "?").toUpperCase()),
+                 el("span", null, `${z.art || "Klausur"} · ${z.datum || "Datum offen"}`));
+    zeile.append(el("span", "wert" + (z.offen ? " offen" : ""),
+      z.offen ? "Ergebnis offen" : `${z.punkte}/${z.max_punkte} · ${z.prozent} %`));
+    kasten.append(zeile);
+  }
+  kasten.append(el("div", "ov-satz", k.prozent === null
+    ? "Noch kein Ergebnis verbucht."
+    : `Kumuliert ${k.punkte} von ${k.max_punkte} Punkten — ${k.prozent} %. ` +
+      (k.reicht ? "Über der 60-%-Grenze." : "Unter der 60-%-Grenze, die je Fach über alle Blöcke gilt.")));
+  return kasten;
+}
+
+function fachUnten(f) {
+  const netz = el("div", "ov-zwei");
+
+  const themen = el("div", "themenliste");
+  const kopf = el("div", "karte-kopf");
+  kopf.append(el("span", "karte-titel", "Themen"),
+              el("span", "karte-notiz-lang", f.hat_nenner
+                ? `${f.themen_gesamt} erfasst · ${f.rueckstand} im Rückstand`
+                : "keine erfasst"));
+  themen.append(kopf);
+  if (!f.themen.length) {
+    themen.append(el("div", "karte-text", "Keine Themen erfasst."));
+  } else {
+    for (const t of f.themen) {
+      const zeile = el("div", "themenzeile");
+      zeile.append(el("span", "titel", t.titel));
+      const punkte = el("div", "stufenpunkte");
+      for (const name of STUFEN) {
+        const p = el("span", "stufenpunkt" + (t.stufen[name] ? " da" : ""), name[0].toUpperCase());
+        p.title = `${STUFEN_NAMEN[name]}: ${t.stufen[name] || "offen"}`;
+        punkte.append(p);
+      }
+      zeile.append(punkte);
+      zeile.append(el("span", "stand" + (t.rueckstand ? " spaet" : ""),
+        t.rueckstand ? "Notizen fehlen" : (t.termin || "ohne Termin")));
+      themen.append(zeile);
+    }
+  }
+  netz.append(themen);
+
+  const spalte = el("div", "spalte");
+
+  const material = el("div", "ov-kasten");
+  material.append(el("div", "karte-titel", "Material"));
+  if (f.material.length) {
+    for (const m of f.material) {
+      const z = el("div", "materialzeile");
+      z.append(el("span", "typ", m.typ), el("span", "name", m.name),
+               el("span", "karte-notiz", `${Math.round(m.groesse / 1024)} kB`));
+      material.append(z);
+    }
+  } else {
+    material.append(el("div", "ov-satz", f.material_ordner
+      ? `Keine Dateien in ${f.material_ordner}.`
+      : "Kein Materialordner im Fach hinterlegt."));
+  }
+  spalte.append(material);
+
+  const ankiK = el("div", "ov-kasten");
+  ankiK.append(el("div", "karte-titel", "Anki-Deck"));
+  const a = f.anki || {};
+  if (a.stand === "ok") {
+    const meins = (a.faecher || []).find((z) => z.deck === f.anki_deck);
+    ankiK.append(el("div", "ov-satz",
+      `${f.anki_deck || "kein Deck hinterlegt"}\n${meins ? `${meins.n} Karten fällig` : "Deck gibt es noch nicht"}`));
+  } else {
+    ankiK.append(el("div", "ov-satz", `${ankiUeberschrift(a)} — Kartenzahlen unbekannt.`));
+  }
+  spalte.append(ankiK);
+
+  const anw = el("div", "ov-kasten");
+  anw.append(el("div", "karte-titel", "Anwesenheit"));
+  const z = f.anwesenheit || {};
+  anw.append(el("div", "ov-satz", z.erfasst
+    ? `${z.anwesend || 0} anwesend, ${z.gefehlt || 0} gefehlt, ${z.entschuldigt || 0} entschuldigt (${z.erfasst} Termine erfasst)`
+    : "Nicht erfasst — nicht „0 gefehlt“."));
+  if (f.anwesenheit_regel) anw.append(el("div", "ov-satz", f.anwesenheit_regel));
+  spalte.append(anw);
+
+  netz.append(spalte);
+  return netz;
+}
+
+function fachWechsel(f) {
+  const reihe = el("div", "fachwechsel");
+  const liste = (zustand.block && zustand.block.faecher) || (zustand.daten && zustand.daten.faecher) || [];
+  for (const andere of liste) {
+    const k = el("button", null, andere.name);
+    if (andere.id === f.id) k.setAttribute("aria-current", "true");
+    else k.addEventListener("click", () => fachOeffnen(andere.id));
+    reihe.append(k);
+  }
+  return reihe;
+}
+
+/* ------------------------------------------------ Seite Einstellungen --- */
+
+function einstellungenZeichnen(e) {
+  document.getElementById("konfigPfad").textContent = e.konfig;
+  const ziel = document.getElementById("einstellungenInhalt");
+  leeren(ziel);
+
+  const netz = el("div", "orga-spalten");
+
+  const google = el("section", "karte polster");
+  google.append(el("div", "karte-titel", "Google Calendar"));
+  google.append(el("div", "ov-satz", e.google.stand === "ok"
+    ? `Verbunden, Zugriff ${e.google.modus}.`
+    : "Nicht verbunden."));
+  for (const k of e.google.kalender) {
+    const z = el("div", "materialzeile");
+    z.append(el("span", "typ", e.google.bereiche[k.id] || "extern"),
+             el("span", "name", k.name));
+    google.append(z);
+  }
+  google.append(el("div", "ov-satz",
+    "Schreiben nach Google läuft nicht von hier, sondern über den Sync-Ausgang."));
+  netz.append(google);
+
+  const ankiK = el("section", "karte polster");
+  ankiK.append(el("div", "karte-titel", "Anki"));
+  ankiK.append(el("div", "ov-satz", e.anki.stand === "ok"
+    ? `Verbunden über ${e.anki.adresse}, Deckschema ${e.anki.deck_praefix}::<Fach>.`
+    : `${ankiUeberschrift(e.anki)}: ${e.anki.text || "keine Verbindung"}. ` +
+      "Solange das so ist, ist die Fälligkeit unbekannt — nicht null."));
+  netz.append(ankiK);
+
+  const rest = el("section", "karte polster");
+  rest.append(el("div", "karte-titel", "Vault und Ablage"));
+  for (const [name, wert] of [["Vault", e.vault], ["Konfiguration", e.konfig],
+                              ["Port", e.port], ["Notion", e.notion.hinweis],
+                              ["Schnappschuss", e.schnappschuss.aktiv ? "aktiv" : "aus"]]) {
+    const z = el("div", "materialzeile");
+    z.append(el("span", "typ", name), el("span", "name", String(wert)));
+    z.title = String(wert);
+    rest.append(z);
+  }
+  netz.append(rest);
+
+  ziel.append(netz);
+}
+
 /* --- Hinweise --- */
 
 function hinweiseZeichnen(d) {
@@ -1056,7 +1321,7 @@ function hinweiseZeichnen(d) {
 /* ------------------------------------------------------------ Bedienung --- */
 
 function verdrahten() {
-  for (const knopf of document.querySelectorAll(".reiter button[data-seite]")) {
+  for (const knopf of document.querySelectorAll("button[data-seite]")) {
     knopf.addEventListener("click", () => {
       zustand.seite = knopf.dataset.seite;
       for (const anderer of document.querySelectorAll(".reiter button[data-seite]")) {
@@ -1066,6 +1331,17 @@ function verdrahten() {
       laden();
     });
   }
+
+  const overlay = document.getElementById("overlay");
+  document.getElementById("ovZu").addEventListener("click", () => overlay.close());
+  // Klick neben den Inhalt schließt. <dialog> liefert dafür keinen eigenen
+  // Haken — der Klick landet auf dem Dialog selbst, nicht auf dem Backdrop.
+  overlay.addEventListener("click", (e) => {
+    const kasten = overlay.getBoundingClientRect();
+    const daneben = e.clientX < kasten.left || e.clientX > kasten.right
+                 || e.clientY < kasten.top || e.clientY > kasten.bottom;
+    if (daneben) overlay.close();
+  });
 
   document.getElementById("wocheZurueck").addEventListener("click", () => {
     zustand.tag = plusTage(zustand.tag || zustand.daten.heute, zustand.sicht === "tag" ? -1 : -7);

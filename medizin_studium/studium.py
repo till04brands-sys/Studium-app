@@ -597,6 +597,110 @@ def _als_dict(t: Termin) -> dict:
     }
 
 
+def punktekonto(v: Vault, fach_id: str) -> dict:
+    """Ergebnisse eines Fachs über alle Blöcke.
+
+    Für die Ärztliche Zwischenprüfung zählen **60 % je Fach kumuliert über
+    alle Blöcke**, nicht je Klausur. Ein Block mit 52 % ist deshalb kein
+    Durchfallen, solange die Summe stimmt — und ein Block mit 61 % keine
+    Entwarnung. Genau deshalb wird hier summiert und nicht gemittelt.
+    """
+    zeilen = []
+    punkte = maxpunkte = 0
+    for e in v.pruefungen():
+        if e.wert("fach") != fach_id:
+            continue
+        p, m = e.zahl("punkte"), e.zahl("max_punkte")
+        zeilen.append({
+            "id": e.id, "block": e.wert("block"), "art": e.wert("art"),
+            "datum": e.wert("datum"), "punkte": p, "max_punkte": m,
+            "prozent": round(p / m * 100, 1) if p is not None and m else None,
+            "bestanden": e.wert("bestanden"), "versuch": e.zahl("versuch"),
+            # Ohne Rohwerte ist das Ergebnis offen, nicht null.
+            "offen": p is None or m is None,
+        })
+        if p is not None and m:
+            punkte += p
+            maxpunkte += m
+    zeilen.sort(key=lambda z: (z["datum"] or "", z["versuch"] or 0))
+    return {
+        "zeilen": zeilen,
+        "punkte": punkte if maxpunkte else None,
+        "max_punkte": maxpunkte or None,
+        "prozent": round(punkte / maxpunkte * 100, 1) if maxpunkte else None,
+        "reicht": (punkte / maxpunkte >= 0.6) if maxpunkte else None,
+    }
+
+
+def _material(v: Vault, ordner: str | None) -> list[dict]:
+    """Dateien im Materialordner. Nur lesen — ``Quellen/`` ist tabu (§1)."""
+    if not ordner:
+        return []
+    pfad = v.wurzel / ordner
+    if not pfad.is_dir():
+        return []
+    gefunden = []
+    for datei in sorted(pfad.iterdir()):
+        if datei.name.startswith(".") or datei.is_dir():
+            continue
+        gefunden.append({
+            "name": datei.name,
+            "typ": (datei.suffix.lstrip(".") or "?").upper(),
+            "groesse": datei.stat().st_size,
+        })
+    return gefunden
+
+
+def fach_detail(v: Vault, fach_id: str, heute: date | None = None) -> dict | None:
+    """Alles zu einem Fach. ``None``, wenn es das Fach nicht gibt."""
+    heute = heute or date.today()
+    stand = next((s for s in fachstand(v, heute) if s.id == fach_id), None)
+    if stand is None:
+        return None
+    roh = next((f for f in v.faecher() if f.get("id") == fach_id), {})
+
+    themen = []
+    for t in v.lernstand():
+        if t.wert("fach") != fach_id:
+            continue
+        termin = _datum(t.wert("termin"))
+        erreicht = [s for s in STUFEN if t.wert(s)]
+        themen.append({
+            "id": t.id, "titel": t.titel, "termin": t.wert("termin"),
+            "quelle": t.wert("quelle"), "relevanz": t.wert("relevanz"),
+            "stufen": {s: t.wert(s) for s in STUFEN},
+            "erreicht": erreicht,
+            "wiki": t.wert("wiki"), "karten": t.zahl("karten"),
+            # „Rückstand" heißt: Vorlesung war, Notizen fehlen. Nicht
+            # „irgendeine Stufe fehlt" — Loci ist laut Lernsystem freiwillig.
+            "rueckstand": bool(termin and termin <= heute and not t.wert("notizen")),
+        })
+    themen.sort(key=lambda t: (t["termin"] or "9999", t["titel"]))
+
+    return {
+        "id": stand.id, "name": stand.name,
+        "platzhalter": stand.platzhalter,
+        "themen_gesamt": stand.themen_gesamt, "stufen": stand.stufen,
+        "hat_nenner": stand.hat_nenner, "rueckstand": stand.rueckstand,
+        "aeltestes_offen": stand.aeltestes_offen,
+        "tage_bis_klausur": stand.tage_bis_klausur, "takt": stand.takt,
+        "ampel": stand.ampel, "ohne_anki": stand.ohne_anki,
+        "bloecke": stand.bloecke, "eigene_klausur": stand.eigene_klausur,
+        "anwesenheit": stand.anwesenheit,
+        "anwesenheit_regel": roh.get("anwesenheit_regel") or None,
+        "pruefungsform": roh.get("pruefungsform") or None,
+        "versuche_max": roh.get("versuche_max") or None,
+        "dozent": roh.get("dozent") or None,
+        "ort": roh.get("ort") or None,
+        "anki_deck": stand.anki_deck,
+        "material_ordner": roh.get("material_ordner") or None,
+        "material": _material(v, roh.get("material_ordner")),
+        "punktekonto": punktekonto(v, fach_id),
+        "themen": themen,
+        "optionale_stufen": sorted(OPTIONALE_STUFEN),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Seite Orga
 # ---------------------------------------------------------------------------
