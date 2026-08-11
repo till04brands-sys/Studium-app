@@ -1,0 +1,313 @@
+@import url("./schriften.css");
+
+/* Farben und Maße aus dem Entwurf vom 10.08.2026. Im Entwurf standen sie als
+   Inline-Attribute an jedem Element; hier stehen sie einmal. */
+:root {
+  --papier:      #efebe4;
+  --karte:       #fffdf9;
+  --kachel:      #fdfaf5;
+  --fuss:        #faf6ef;
+  --navy:        #1b3358;
+  --tinte:       #17233a;
+  --braun:       #7a4a23;
+  --rot:         #a33526;
+  --gruen:       #3f6b47;
+
+  --linie:       #e2dcd2;
+  --linie-hell:  #eae3d8;
+  --linie-zart:  #f2ece2;
+  --rand:        #ddd5c8;
+
+  --grau:        #6f6a62;
+  --grau-hell:   #8b857c;
+  --grau-zart:   #a09a90;
+
+  --serif: "Source Serif 4", Georgia, serif;
+  --sans:  "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono:  "IBM Plex Mono", ui-monospace, monospace;
+
+  --raster-hoehe: 812px;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--papier); }
+body {
+  margin: 0;
+  background: var(--papier);
+  color: var(--tinte);
+  font-family: var(--sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: var(--navy); text-decoration: none; }
+a:hover { color: var(--braun); }
+
+.huelle { max-width: 1520px; margin: 0 auto; padding: 0 22px 60px; }
+
+/* ---------------------------------------------------------------- Kopf --- */
+.kopf { position: sticky; top: 0; z-index: 40; background: var(--papier); padding-top: 14px; }
+
+.kopf-band {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  background: var(--karte); border: 1px solid var(--linie);
+  border-radius: 10px 10px 0 0; border-bottom: none; padding: 10px 16px;
+}
+.marke { display: flex; align-items: baseline; gap: 9px; }
+.marke-punkt { width: 11px; height: 11px; background: var(--navy); border-radius: 2px; }
+.marke-name { font-family: var(--serif); font-size: 17px; letter-spacing: -.01em; }
+.marke-zusatz { font-size: 11px; font-family: var(--mono); color: var(--grau-zart); }
+
+.reiter { display: flex; gap: 2px; margin-left: 6px; }
+.reiter button {
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  padding: 6px 13px; font-size: 11.5px; font-family: var(--mono);
+  letter-spacing: .08em; color: var(--grau);
+}
+.reiter button:hover { background: #f4efe6; }
+.reiter button[aria-current="page"] { background: var(--navy); color: #f2ede3; }
+.reiter button[disabled] { opacity: .4; cursor: not-allowed; }
+.reiter button[disabled]:hover { background: none; }
+
+.dehnen { flex: 1; }
+
+.werkzeuge {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px dashed var(--rand); border-radius: 8px; padding: 5px 8px;
+}
+.werkzeuge button {
+  border: 1px solid var(--rand); background: var(--karte); border-radius: 5px;
+  padding: 3px 9px; font-size: 11px; font-family: var(--mono); color: var(--grau);
+}
+.werkzeuge button:hover { background: #f7f1e7; }
+.werkzeuge .heute-zurueck { color: var(--navy); border-color: var(--navy); }
+
+/* Statusband */
+.band {
+  display: flex; align-items: stretch; flex-wrap: wrap;
+  background: var(--navy); color: #eae4d9; border-radius: 0 0 10px 10px;
+  padding: 0 16px; box-shadow: 0 6px 14px rgba(23, 35, 58, .10);
+}
+.band-feld {
+  padding: 9px 18px; display: flex; align-items: baseline; gap: 8px;
+  border-left: 1px solid rgba(234, 228, 217, .18); min-width: 0;
+}
+.band-feld:first-child { padding-left: 0; border-left: none; }
+.band-marke { font-size: 10px; font-family: var(--mono); opacity: .6; letter-spacing: .08em; }
+.band-wert { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.band-wert.gross { font-family: var(--serif); font-size: 15px; }
+.band-wert.stark { font-weight: 600; }
+
+.abgleich {
+  align-self: center; background: rgba(234, 228, 217, .12);
+  border: 1px solid rgba(234, 228, 217, .3); color: #eae4d9;
+  border-radius: 6px; padding: 5px 11px; font-size: 11.5px; font-family: var(--mono);
+}
+.abgleich.warnung { background: rgba(163, 53, 38, .3); border-color: rgba(226, 150, 130, .55); }
+
+/* --------------------------------------------------------------- Karten --- */
+.gitter {
+  display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr);
+  gap: 14px; align-items: start; margin-top: 16px;
+}
+.spalte { display: flex; flex-direction: column; gap: 12px; }
+
+.karte { background: var(--karte); border: 1px solid var(--linie); border-radius: 10px; }
+.karte.randlos { overflow: hidden; }
+
+.karte-kopf {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 11px 14px; border-bottom: 1px solid var(--linie-hell);
+}
+.karte-kopf.mittig { align-items: center; }
+.karte-titel { font-family: var(--serif); font-size: 16px; }
+.karte-marke { font-size: 11px; font-family: var(--mono); letter-spacing: .08em; color: var(--grau-hell); }
+.karte-notiz { font-size: 12px; color: var(--grau); font-family: var(--mono); }
+.karte-text { padding: 16px 14px; font-size: 13px; color: var(--grau); line-height: 1.5; }
+
+/* Umschalter Tag/Woche */
+.schalter { display: flex; gap: 2px; background: var(--linie-zart); border-radius: 6px; padding: 2px; }
+.schalter button {
+  background: none; border: none; border-radius: 5px;
+  padding: 4px 11px; font-size: 12px; color: var(--grau);
+}
+.schalter button[aria-pressed="true"] { background: var(--karte); color: var(--tinte); box-shadow: 0 1px 2px rgba(0,0,0,.07); }
+
+.filter {
+  border: 1px solid var(--rand); background: var(--karte); border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; color: var(--grau);
+}
+.filter[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #f2ede3; }
+
+/* ------------------------------------------------------------ Wochennetz --- */
+.netz-kopf { display: grid; grid-template-columns: 54px 1fr; }
+.netz-tage { display: grid; border-bottom: 1px solid var(--linie-hell); }
+.tag-kopf { padding: 7px 9px; border-left: 1px solid var(--linie-hell); }
+.tag-kopf:first-child { border-left: none; }
+.tag-kopf.heute { background: #f4efe4; }
+.tag-name { font-size: 12px; font-weight: 600; }
+.tag-datum { font-size: 11px; font-family: var(--mono); color: var(--grau-hell); margin-left: 6px; }
+
+.netz-koerper { display: grid; grid-template-columns: 54px 1fr; position: relative; }
+.stundenleiste { position: relative; height: var(--raster-hoehe); border-right: 1px solid var(--linie-hell); }
+.stunde {
+  position: absolute; left: 0; right: 7px; text-align: right;
+  font-size: 10px; font-family: var(--mono); color: var(--grau-zart);
+  transform: translateY(-5px);
+}
+.netz-spalten { display: grid; height: var(--raster-hoehe); }
+.tag-spalte {
+  position: relative; border-left: 1px solid var(--linie-hell);
+  background:
+    repeating-linear-gradient(var(--karte) 0 calc(var(--stunde-hoehe) - 1px),
+                              #f0e9dd calc(var(--stunde-hoehe) - 1px) var(--stunde-hoehe));
+}
+.tag-spalte:first-child { border-left: none; }
+.tag-spalte.heute {
+  background:
+    repeating-linear-gradient(#fdf8ee 0 calc(var(--stunde-hoehe) - 1px),
+                              #ece2d1 calc(var(--stunde-hoehe) - 1px) var(--stunde-hoehe));
+}
+
+.jetzt-linie { position: absolute; left: 0; right: 0; height: 1px; background: var(--rot); z-index: 3; }
+.jetzt-linie::before {
+  content: ""; position: absolute; left: -3px; top: -2.5px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--rot);
+}
+
+.termin {
+  position: absolute; left: 3px; right: 3px; overflow: hidden;
+  border-radius: 5px; padding: 4px 6px; font-size: 11.5px; line-height: 1.25;
+  border-left: 3px solid var(--navy); background: #e8eaf0; color: var(--tinte);
+}
+.termin .t-titel { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.termin .t-meta { font-family: var(--mono); font-size: 10px; color: var(--grau); margin-top: 2px; }
+.termin.bereich-extern,
+.termin.bereich-leben,
+.termin.bereich-fitness,
+.termin.bereich-gesundheit,
+.termin.bereich-business { opacity: var(--fremd-deckkraft, .62); }
+.termin.bereich-gesundheit,
+.termin.bereich-fitness { border-left-color: var(--gruen); background: #e7ece7; }
+.termin.bereich-business   { border-left-color: var(--braun); background: #f0e9e2; }
+.termin.bereich-leben      { border-left-color: #6b6f86; background: #eceaf0; }
+.termin.bereich-extern     { border-left-color: var(--grau-zart); background: #eeebe5; }
+.termin.platzhalter { border-left-style: dashed; }
+.termin.gestrichen .t-titel { text-decoration: line-through; opacity: .65; }
+.termin.fehler { border-left-color: var(--rot); background: #f3e4e1; }
+
+.raster-leer {
+  height: 300px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; text-align: center;
+  background: repeating-linear-gradient(var(--karte) 0 43px, #f4efe6 43px 44px);
+}
+.raster-leer h2 { font-family: var(--serif); font-size: 19px; font-weight: 400; margin: 0; }
+.raster-leer p { font-size: 13px; color: var(--grau); max-width: 46ch; line-height: 1.5; margin: 0; }
+
+/* Ohne feste Zeit */
+.fussbereich { border-top: 1px solid var(--linie-hell); background: var(--fuss); }
+.fussbereich .kopfzeile { display: flex; align-items: baseline; gap: 10px; padding: 9px 14px 4px; }
+.fussbereich .hinweis { font-size: 12px; color: var(--grau-zart); }
+.offen-zeile {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid #eee7dd;
+}
+.offen-zeile:last-child { border-bottom: none; }
+.offen-zeile .titel { font-size: 13px; flex: 1; }
+
+/* -------------------------------------------------------------- Jetzt --- */
+.jetzt { background: var(--navy); color: #f0ebe1; border-radius: 10px; padding: 16px 18px; }
+.jetzt .marke { font-size: 11px; font-family: var(--mono); letter-spacing: .08em; opacity: .6; }
+.jetzt h2 { font-family: var(--serif); font-size: 23px; font-weight: 400; line-height: 1.2; margin: 6px 0 0; }
+.jetzt .zeile { display: flex; align-items: baseline; gap: 14px; margin-top: 8px; font-size: 13px; opacity: .9; }
+.jetzt .zeile .uhr { font-family: var(--mono); }
+.jetzt .zaehler { display: flex; align-items: baseline; gap: 8px; margin-top: 12px; }
+.jetzt .zaehler b { font-family: var(--serif); font-size: 32px; font-weight: 400; line-height: 1; }
+.jetzt .zaehler span { font-size: 13px; opacity: .75; }
+.jetzt .nichts { margin-top: 8px; font-size: 14px; opacity: .8; line-height: 1.5; }
+.jetzt .nichts small { font-size: 12.5px; opacity: .75; }
+
+/* ------------------------------------------------------------ Aufgaben --- */
+.kaestchen {
+  width: 17px; height: 17px; flex: none; margin-top: 1px;
+  border: 1.5px solid var(--rand); border-radius: 4px; background: var(--karte);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; line-height: 1; color: transparent; padding: 0;
+}
+.kaestchen:hover { border-color: var(--navy); }
+.kaestchen[aria-checked="true"] { background: var(--navy); border-color: var(--navy); color: #f2ede3; }
+.kaestchen[disabled] { opacity: .5; cursor: wait; }
+
+.aufgabe { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--linie-zart); }
+.aufgabe:last-child { border-bottom: none; }
+.aufgabe .text { flex: 1; min-width: 0; }
+.aufgabe .titel { font-size: 13.5px; line-height: 1.35; }
+.aufgabe .fach { font-size: 11px; font-family: var(--mono); color: var(--grau-zart); margin-top: 2px; }
+.aufgabe .meta { font-size: 11px; font-family: var(--mono); white-space: nowrap; padding-top: 2px; color: var(--grau-hell); }
+.aufgabe .meta.spaet { color: var(--rot); }
+.aufgabe.erledigt .titel { text-decoration: line-through; color: var(--grau-zart); }
+
+.liste { padding: 4px 14px 10px; }
+
+/* ---------------------------------------------------------------- Anki --- */
+.anki-zahl { display: flex; align-items: baseline; gap: 9px; margin-bottom: 10px; }
+.anki-zahl b { font-family: var(--serif); font-size: 30px; font-weight: 400; line-height: 1; }
+.anki-zahl span { font-size: 13px; color: var(--grau); }
+.anki-zeile { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.anki-zeile .n { font-family: var(--mono); font-size: 12px; color: var(--grau); margin-left: auto; }
+
+.warnkasten { background: #f7efe0; border: 1px solid #e3d3b4; border-radius: 7px; padding: 11px 12px; margin: 14px; }
+.warnkasten b { display: block; font-size: 13.5px; color: #8a5a1a; }
+.warnkasten span { display: block; font-size: 12.5px; color: var(--grau); margin-top: 4px; line-height: 1.45; }
+
+/* ------------------------------------------------------------ Im Blick --- */
+.blick-zeile { display: flex; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--linie-zart); }
+.blick-zeile:last-child { border-bottom: none; }
+.blick-marke {
+  font-size: 9.5px; font-family: var(--mono); letter-spacing: .06em;
+  border-radius: 3px; padding: 2px 5px; height: fit-content; white-space: nowrap;
+  background: var(--linie-zart); color: var(--grau);
+}
+.blick-marke.hart { background: var(--rot); color: #fff; }
+.blick-zeile .text { font-size: 13px; line-height: 1.4; }
+.blick-zeile .folge { font-size: 11.5px; color: var(--grau-hell); margin-top: 3px; line-height: 1.4; }
+
+/* --------------------------------------------------------- Fachkacheln --- */
+.kacheln { margin-top: 14px; background: var(--karte); border: 1px solid var(--linie); border-radius: 10px; padding: 10px 12px; }
+.kacheln .netz { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.kachel {
+  text-align: left; background: var(--kachel); border: 1px solid var(--linie-hell);
+  border-radius: 8px; padding: 9px 10px;
+}
+.kachel:hover { background: #f7f1e7; border-color: #d9d0c2; }
+.kachel .oben { display: flex; align-items: center; gap: 7px; }
+.kachel .strich { width: 3px; height: 14px; border-radius: 2px; background: var(--navy); }
+.kachel .kurz { font-size: 12px; font-family: var(--mono); font-weight: 500; letter-spacing: .04em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kachel .ampel { width: 7px; height: 7px; border-radius: 50%; margin-left: auto; background: var(--grau-zart); }
+.kachel .ampel.gruen { background: var(--gruen); }
+.kachel .ampel.gelb { background: #b8862a; }
+.kachel .ampel.rot { background: var(--rot); }
+.kachel .stufen { display: flex; gap: 2px; margin-top: 8px; }
+.kachel .stufe { flex: 1; height: 4px; border-radius: 2px; background: var(--linie-zart); }
+.kachel .stufe.voll { background: var(--navy); }
+.kachel .stufe.teil { background: #93a3bd; }
+.kachel .takt { font-size: 11px; font-family: var(--mono); color: var(--grau-hell); margin-top: 7px; }
+.kachel.platzhalter { border-style: dashed; }
+
+/* -------------------------------------------------------------- Sonstiges --- */
+.meldung {
+  background: var(--karte); border: 1px solid #d6cfc3; border-left: 3px solid var(--braun);
+  border-radius: 10px; padding: 14px 18px; margin-top: 16px;
+}
+.meldung b { font-family: var(--serif); font-size: 17px; font-weight: 400; }
+.meldung p { font-size: 13px; color: var(--grau); margin: 4px 0 0; max-width: 80ch; line-height: 1.5; }
+.meldung.fehler { border-left-color: var(--rot); }
+
+.leise { color: var(--grau-hell); }
+.mono { font-family: var(--mono); }
+
+@media (max-width: 1100px) {
+  .gitter { grid-template-columns: 1fr; }
+}

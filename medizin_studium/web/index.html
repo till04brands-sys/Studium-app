@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Medizin-Studium</title>
+<link rel="stylesheet" href="./stil.css">
+</head>
+<body>
+<div class="huelle">
+
+  <header class="kopf">
+    <div class="kopf-band">
+      <div class="marke">
+        <span class="marke-punkt"></span>
+        <span class="marke-name">Studium</span>
+        <span class="marke-zusatz">HHU · Modellstudiengang</span>
+      </div>
+      <nav class="reiter">
+        <button aria-current="page">HEUTE</button>
+        <button disabled title="kommt noch">BLOCK</button>
+        <button disabled title="kommt noch">ORGA</button>
+        <button disabled title="kommt noch">EINGANG</button>
+      </nav>
+      <div class="dehnen"></div>
+      <div class="werkzeuge">
+        <button id="wocheZurueck" title="Woche zurück">←</button>
+        <button id="wocheHeute" class="heute-zurueck">Heute</button>
+        <button id="wocheVor" title="Woche vor">→</button>
+        <button id="neuLaden" title="Vault neu einlesen">Neu laden</button>
+      </div>
+    </div>
+
+    <div class="band">
+      <div class="band-feld"><span class="band-wert gross" id="bandDatum">…</span></div>
+      <div class="band-feld">
+        <span class="band-marke">BLOCK</span>
+        <span class="band-wert" id="bandBlock">—</span>
+      </div>
+      <div class="band-feld">
+        <span class="band-marke">KLAUSUR IN</span>
+        <span class="band-wert stark" id="bandKlausur">—</span>
+      </div>
+      <div class="band-feld">
+        <span class="band-marke">NÄCHSTER</span>
+        <span class="band-wert" id="bandNaechster">—</span>
+      </div>
+      <div class="dehnen"></div>
+      <button class="abgleich" id="bandAbgleich">…</button>
+    </div>
+  </header>
+
+  <div id="meldungen"></div>
+
+  <div class="gitter">
+
+    <!-- Kalender ------------------------------------------------------- -->
+    <section class="karte randlos">
+      <div class="karte-kopf mittig">
+        <span class="karte-titel" id="kalTitel">Woche</span>
+        <div class="dehnen"></div>
+        <div class="schalter">
+          <button data-sicht="tag">Tag</button>
+          <button data-sicht="woche" aria-pressed="true">Woche</button>
+        </div>
+        <button class="filter" id="nurStudium" aria-pressed="false">Nur Studium</button>
+      </div>
+
+      <div id="raster"></div>
+
+      <div class="fussbereich">
+        <div class="kopfzeile">
+          <span class="karte-marke">OHNE FESTE ZEIT</span>
+          <span class="hinweis">Online-Vorlesungen, nach Frist sortiert</span>
+        </div>
+        <div id="ohneZeit" class="liste"></div>
+      </div>
+    </section>
+
+    <!-- Rechte Spalte -------------------------------------------------- -->
+    <div class="spalte">
+
+      <section class="jetzt">
+        <div class="marke">JETZT</div>
+        <div id="jetzt"></div>
+      </section>
+
+      <section class="karte">
+        <div class="karte-kopf">
+          <span class="karte-marke">HEUTE ZU TUN</span>
+          <div class="dehnen"></div>
+          <span class="karte-notiz" id="aufgabenKopf">—</span>
+        </div>
+        <div id="aufgaben"></div>
+      </section>
+
+      <section class="karte">
+        <div class="karte-kopf"><span class="karte-marke">ANKI HEUTE</span></div>
+        <div id="anki"></div>
+      </section>
+
+      <section class="karte">
+        <div class="karte-kopf">
+          <span class="karte-marke">IM BLICK</span>
+          <div class="dehnen"></div>
+          <span class="karte-notiz">max. 3</span>
+        </div>
+        <div id="imBlick"></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="kacheln">
+    <div class="netz" id="faecher"></div>
+  </section>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>

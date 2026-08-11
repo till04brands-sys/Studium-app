@@ -65,6 +65,10 @@ class Termin:
     ersetzt: date | None = None
     platzhalter: bool = False
     notiz: str | None = None
+    # Die Kennung desselben Termins in der Fremdquelle. Ohne sie stünde jedes
+    # gespiegelte Training zweimal im Raster — einmal aus dem Vault, einmal
+    # frisch aus Google.
+    extern_id: str | None = None
 
     @property
     def ganztags(self) -> bool:
@@ -116,6 +120,7 @@ def termine_der_woche(v: Vault, montag: date) -> list[Termin]:
             serie=e.wert("serie"),
             ersetzt=_datum(e.wert("ersetzt")),
             notiz=e.wert("notiz"),
+            extern_id=e.wert("gcal"),
         )
         if t.serie and t.ersetzt:
             ausnahmen[(t.serie, t.ersetzt)] = t
@@ -335,6 +340,11 @@ def aufgaben_heute(v: Vault, heute: date | None = None) -> list[dict]:
             "thema": e.wert("thema"), "orga": e.wert("orga"),
             "faellig": e.wert("faellig"), "dauer": e.zahl("dauer"),
             "ueberfaellig": (heute - faellig).days,
+            # Geht mit zur Oberfläche und beim Abhaken wieder zurück. Ohne
+            # diesen Umweg prüfte der Server nur gegen seinen eigenen Lesevorgang
+            # von einer Millisekunde vorher — und überschriebe stillschweigend,
+            # was Obsidian in der Zwischenzeit an derselben Zeile geändert hat.
+            "pruefsumme": e.pruefsumme,
         })
     liste.sort(key=lambda a: (-a["ueberfaellig"], a["titel"]))
     return liste
@@ -401,18 +411,79 @@ def im_blick(v: Vault, heute: date | None = None) -> list[dict]:
     return [k[1] for k in kandidaten[:3]]
 
 
-def zustand(v: Vault, heute: date | None = None) -> dict:
-    """Alles, was die Oberfläche für „Heute" braucht, in einem Rutsch."""
+def _minuten(zeit: str) -> int:
+    stunde, minute = zeit.split(":")
+    return int(stunde) * 60 + int(minute)
+
+
+def naechster_termin(liste: list[Termin], jetzt: datetime) -> dict | None:
+    """Der laufende Termin, sonst der nächste. ``None``, wenn nichts kommt.
+
+    ``None`` heißt hier „nichts erfasst", nicht „nichts los". Die Oberfläche
+    schreibt das auch so hin — der Unterschied ist bei leerem Vault der ganze
+    Punkt.
+    """
+    heute, uhr = jetzt.date(), jetzt.hour * 60 + jetzt.minute
+    kommend: list[tuple[int, Termin, bool]] = []
+    for t in liste:
+        if t.status in {"entfaellt", "fehler"} or t.von is None:
+            continue
+        beginn = (t.tag - heute).days * 1440 + _minuten(t.von)
+        ende = beginn + (_minuten(t.bis) - _minuten(t.von) if t.bis else 60)
+        if ende <= uhr:
+            continue
+        kommend.append((beginn, t, beginn <= uhr))
+    if not kommend:
+        return None
+    kommend.sort(key=lambda k: k[0])
+    beginn, t, laeuft = kommend[0]
+    return {
+        "titel": t.titel, "tag": t.tag.isoformat(), "von": t.von, "bis": t.bis,
+        "ort": t.ort, "fach": t.fach, "bereich": t.bereich, "quelle": t.quelle,
+        "laeuft": laeuft, "minuten_bis": max(0, beginn - uhr),
+    }
+
+
+def _als_dict(t: Termin) -> dict:
+    return t.__dict__ | {
+        "tag": t.tag.isoformat(),
+        "ersetzt": t.ersetzt.isoformat() if t.ersetzt else None,
+    }
+
+
+def zustand(
+    v: Vault,
+    heute: date | None = None,
+    jetzt: datetime | None = None,
+    extern: list[Termin] | None = None,
+) -> dict:
+    """Alles, was die Oberfläche für „Heute" braucht, in einem Rutsch.
+
+    ``extern`` sind Termine aus fremden Quellen — heute Google Calendar. Sie
+    kommen fertig übersetzt herein, damit diese Schicht nichts über HTTP oder
+    OAuth wissen muss.
+    """
     heute = heute or date.today()
+    jetzt = jetzt or datetime.now()
     montag = heute - timedelta(days=heute.weekday())
     stand = fachstand(v, heute)
+    aus_vault = termine_der_woche(v, montag)
+
+    # Der Vault gewinnt bei Doppelungen: Seine Zeile trägt die stabile ID und
+    # die Notizen (Trainingssätze etwa), die in Google gar nicht stehen.
+    gespiegelt = {t.extern_id for t in aus_vault if t.extern_id}
+    frisch = [t for t in (extern or [])
+              if (t.id or "").removeprefix("gcal:") not in gespiegelt]
+
+    alle = aus_vault + frisch
+    alle.sort(key=lambda t: (t.tag, t.von or "00:00"))
     return {
         "heute": heute.isoformat(),
+        "jetzt": jetzt.strftime("%H:%M"),
         "woche_ab": montag.isoformat(),
         "block": blockuhr(v, heute),
-        "termine": [t.__dict__ | {"tag": t.tag.isoformat(),
-                                  "ersetzt": t.ersetzt.isoformat() if t.ersetzt else None}
-                    for t in termine_der_woche(v, montag)],
+        "termine": [_als_dict(t) for t in alle],
+        "naechster": naechster_termin(alle, jetzt),
         "online": online_ohne_slot(v),
         "aufgaben": aufgaben_heute(v, heute),
         "im_blick": im_blick(v, heute),
