@@ -257,6 +257,57 @@ def pruefen(seite: str) -> None:
             )
 
 
+# Nur diese vier Schnitte werden eingebettet. Alle sieben wären 384 kB, und
+# die Kursiv- und Halbfett-Varianten kommen auf dieser Seite nicht vor.
+EINGEBETTET = [
+    ("IBM Plex Sans", 400, "IBMPlexSans-400-latin.woff2"),
+    ("IBM Plex Sans", 600, "IBMPlexSans-600-latin.woff2"),
+    ("IBM Plex Mono", 400, "IBMPlexMono-400-latin.woff2"),
+    ("Source Serif 4", 400, "SourceSerif4-400-latin.woff2"),
+]
+
+
+def _schriften_eingebettet() -> str:
+    import base64
+
+    teile = []
+    for familie, gewicht, datei in EINGEBETTET:
+        pfad = WEB / "schrift" / datei
+        roh = base64.b64encode(pfad.read_bytes()).decode("ascii")
+        teile.append(
+            f"@font-face{{font-family:'{familie}';font-style:normal;"
+            f"font-weight:{gewicht};font-display:swap;"
+            f"src:url(data:font/woff2;base64,{roh}) format('woff2')}}"
+        )
+    return "\n".join(teile)
+
+
+def einzeldatei(d: dict) -> str:
+    """Eine Datei, die alles enthält — Stil und Schriften inbegriffen.
+
+    Der Grund ist die Dateien-App auf dem iPhone: Sie zeigt eine HTML-Datei in
+    der Vorschau an, lädt aber Nachbardateien nicht zuverlässig mit. Eine Seite
+    aus mehreren Teilen sähe dort nackt aus.
+    """
+    stil = (WEB / "schnappschuss.css").read_text(encoding="utf-8")
+    stil = stil.replace('@import url("./schriften.css");', "")
+    seite = html_bauen(d)
+    return seite.replace(
+        '<link rel="stylesheet" href="./schnappschuss.css">',
+        f"<style>\n{_schriften_eingebettet()}\n{stil}</style>",
+    )
+
+
+def einzeln_bauen(v: Vault, ziel: Path, heute: date | None = None) -> Path:
+    nutzlast = daten(v, heute)
+    seite = einzeldatei(nutzlast)
+    pruefen(seite)
+    ziel = Path(ziel).expanduser()
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    ziel.write_text(seite, encoding="utf-8")
+    return ziel
+
+
 def bauen(v: Vault, ziel: Path, heute: date | None = None) -> Path:
     nutzlast = daten(v, heute)
     seite = html_bauen(nutzlast)
@@ -276,18 +327,29 @@ def bauen(v: Vault, ziel: Path, heute: date | None = None) -> Path:
 
 
 def _main(argv: list[str]) -> int:
-    ziel = Path(argv[1]) if len(argv) > 1 else Path(
-        _einstellung().get("ordner", "~/Documents/Studium-unterwegs")
-    ).expanduser()
+    ordner_modus = "--ordner" in argv
+    argv = [a for a in argv if a != "--ordner"]
     v = Vault(konfig()["vault"])
     d = daten(v)
+
+    vorgabe = _einstellung().get(
+        "datei", "~/Library/Mobile Documents/com~apple~CloudDocs/Studium unterwegs.html"
+    )
+    ziel = Path(argv[1]) if len(argv) > 1 else Path(
+        _einstellung().get("ordner", "~/Documents/Studium-unterwegs")
+        if ordner_modus else vorgabe
+    ).expanduser()
+
     try:
-        pfad = bauen(v, ziel)
+        pfad = bauen(v, ziel) if ordner_modus else einzeln_bauen(v, ziel)
     except SchnappschussFehler as fehler:
         print(f"\nAbgebrochen: {fehler}\n")
         return 1
+
     termine = sum(len(t["eintraege"]) for t in d["woche"])
-    print(f"Geschrieben nach {pfad}")
+    groesse = pfad.stat().st_size if pfad.is_file() else sum(
+        p.stat().st_size for p in pfad.rglob("*") if p.is_file())
+    print(f"Geschrieben: {pfad}  ({groesse / 1024:.0f} kB)")
     print(f"  Bereiche:  {', '.join(d['bereiche'])}")
     print(f"  Termine:   {termine} · Aufgaben: {len(d['aufgaben'])} · Fristen: {len(d['fristen'])}")
     print(f"  Anki:      {d['anki']['stand']}")
