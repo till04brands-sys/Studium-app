@@ -128,9 +128,11 @@ function zeichnen() {
     if (zustand.seite === "eingang" && zustand.eingang) eingangZeichnen(zustand.eingang);
     if (zustand.seite === "einstellungen" && zustand.einstellungen) einstellungenZeichnen(zustand.einstellungen);
     if (zustand.daten) kopfZeichnen(zustand.daten);
+    maengelZeichnen(zustand[zustand.seite === "block" ? "block" : zustand.seite]);
     return;
   }
   const d = zustand.daten;
+  maengelZeichnen(d);
   kopfZeichnen(d);
   rasterZeichnen(d);
   ohneZeitZeichnen(d);
@@ -1300,6 +1302,20 @@ function einstellungenZeichnen(e) {
 }
 
 /* --- Hinweise --- */
+
+/* Eine fehlende Datei ist kein leerer Datenbestand. Ohne diesen Hinweis
+   stünde nach einer Umbenennung in Obsidian überall „nichts erfasst" — und
+   das läse sich wie eine Tatsache statt wie ein Fehler. */
+function maengelZeichnen(quelle) {
+  const liste = (quelle && quelle.maengel) || [];
+  if (!liste.length) return;
+  zeigeMeldung(
+    liste.length === 1 ? "Eine Datei fehlt" : `${liste.length} Dateien fehlen`,
+    liste.map((m) => `${m.datei} — ${m.grund}`).join(" · ") +
+      ". Was daraus käme, steht nirgends: nicht „nichts erfasst“, sondern ungelesen.",
+    true,
+  );
+}
 
 function hinweiseZeichnen(d) {
   const g = d.google || {};

@@ -443,6 +443,7 @@ def block_zustand(v: Vault, heute: date | None = None) -> dict:
         "anwesenheit_erfasst": sum(
             (s.anwesenheit or {}).get("erfasst", 0) for s in stand
         ),
+        "maengel": list(v.maengel),
     }
 
 
@@ -698,6 +699,7 @@ def fach_detail(v: Vault, fach_id: str, heute: date | None = None) -> dict | Non
         "punktekonto": punktekonto(v, fach_id),
         "themen": themen,
         "optionale_stufen": sorted(OPTIONALE_STUFEN),
+        "maengel": list(v.maengel),
     }
 
 
@@ -754,6 +756,7 @@ def orga_zustand(v: Vault, heute: date | None = None, dienste: dict | None = Non
         "anmeldungen": [f for f in alle if f["art"] == "anmeldung"],
         "einrichtung": schritte,
         "einrichtung_offen": sum(1 for s in schritte if not s["fertig"]),
+        "maengel": list(v.maengel),
     }
 
 
@@ -791,6 +794,7 @@ def eingang_zustand(v: Vault) -> dict:
         ],
         "offen": len(vorschlaege) + len(konflikte),
         "spaeter": sum(1 for s in vorschlaege if s.get("stand") == "spaeter"),
+        "maengel": list(v.maengel),
     }
 
 
@@ -837,4 +841,7 @@ def zustand(
         ],
         # Kein Wert bedeutet „nie abgeglichen", nicht „gerade abgeglichen".
         "abgleich": None,
+        # Fehlende Dateien reisen bis in die Anzeige mit. Eine leere Liste
+        # heißt „nichts erfasst", eine fehlende Datei heißt etwas anderes.
+        "maengel": list(v.maengel),
     }

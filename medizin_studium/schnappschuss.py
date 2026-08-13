@@ -114,6 +114,9 @@ def daten(v: Vault, heute: date | None = None) -> dict:
             "decks": len(ankistand["faecher"]),
         },
         "bereiche": sorted(erlaubt),
+        # Fehlende Dateien reisen mit. Unterwegs ist der Unterschied zwischen
+        # „nichts erfasst" und „nicht gelesen" am wenigsten überprüfbar.
+        "maengel": voll.get("maengel", []),
     }
 
 
@@ -127,6 +130,21 @@ WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag",
 
 def _e(wert) -> str:
     return html.escape("" if wert is None else str(wert))
+
+
+def _maengel(d: dict) -> str:
+    """Fehlende Dateien stehen ganz oben, nicht im Fuß.
+
+    Unterwegs kann man nicht nachsehen, ob wirklich nichts ansteht oder ob
+    nur eine Datei nicht gelesen wurde. Also muss es dastehen, bevor man
+    anfängt, der Seite zu glauben.
+    """
+    liste = d.get("maengel") or []
+    if not liste:
+        return ""
+    zeilen = " · ".join(f'{_e(m["datei"])} ({_e(m["grund"])})' for m in liste)
+    return (f'<div class="kasten warn">Unvollständig: {zeilen}. '
+            "Was daraus käme, ist ungelesen — nicht „nichts erfasst“.</div>")
 
 
 def _kopf(d: dict) -> str:
@@ -223,6 +241,7 @@ def html_bauen(d: dict) -> str:
 <body>
 <main>
   <div class="stand">Stand {_e(d["erzeugt"])} · nur Lesen</div>
+  {_maengel(d)}
   {_kopf(d)}
   {_klausur(d)}
 

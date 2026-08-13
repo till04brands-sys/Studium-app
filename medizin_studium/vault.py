@@ -20,7 +20,10 @@ import csv
 import hashlib
 import io
 import json
+import os
 import re
+import tempfile
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -43,6 +46,44 @@ class Konflikt(VaultFehler):
 
 def _hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+# Eine Sperre je Datei. Der Server ist mehrläufig: Ohne sie lesen zwei
+# gleichzeitige Schreibvorgänge dieselbe Datei, ändern je eine Zeile und
+# schreiben beide alles zurück — der zweite gewinnt, die erste Änderung ist
+# spurlos weg. Die Prüfsumme fängt das nicht ab, sie deckt nur die Zielzeile.
+_SPERREN: dict[str, threading.Lock] = {}
+_SPERREN_SPERRE = threading.Lock()
+
+
+def _sperre(pfad: Path) -> threading.Lock:
+    schluessel = str(pfad.resolve())
+    with _SPERREN_SPERRE:
+        return _SPERREN.setdefault(schluessel, threading.Lock())
+
+
+def atomar_schreiben(pfad: Path, text: str) -> None:
+    """Erst in eine Nebendatei, dann umbenennen.
+
+    ``write_text`` leert die Datei und füllt sie neu. Ein Absturz oder ein
+    Lesevorgang aus Obsidian in genau diesem Moment sieht eine halbe
+    ``Aufgaben.md``. ``os.replace`` ist auf einem Dateisystem unteilbar: Es
+    gibt die alte Fassung oder die neue, nie eine halbe.
+    """
+    ordner = pfad.parent
+    rechte = pfad.stat().st_mode & 0o777 if pfad.exists() else None
+    griff, zwischen = tempfile.mkstemp(dir=ordner, prefix=".", suffix=".tmp")
+    try:
+        with os.fdopen(griff, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        if rechte is not None:
+            os.chmod(zwischen, rechte)
+        os.replace(zwischen, pfad)
+    except BaseException:
+        Path(zwischen).unlink(missing_ok=True)
+        raise
 
 
 @dataclass
@@ -191,18 +232,21 @@ def zeile_schreiben(pfad: Path, eintrag: Eintrag, neue_zeile: str) -> Eintrag:
     Wirft ``Konflikt``, wenn jemand schneller war. Die App zeigt dann beide
     Fassungen — sie wählt nicht selbst.
     """
-    aktuell = pfad.read_text(encoding="utf-8").split("\n")
-    hoehe = eintrag.zeile.count("\n") + 1
-    ist = "\n".join(aktuell[eintrag.nummer : eintrag.nummer + hoehe])
+    # Lesen, Prüfen und Schreiben gehören zusammen — dazwischen darf kein
+    # zweiter Vorgang dieselbe Datei anfassen.
+    with _sperre(pfad):
+        aktuell = pfad.read_text(encoding="utf-8").split("\n")
+        hoehe = eintrag.zeile.count("\n") + 1
+        ist = "\n".join(aktuell[eintrag.nummer : eintrag.nummer + hoehe])
 
-    if _hash(ist) != eintrag.pruefsumme:
-        raise Konflikt(
-            f"{pfad.name}, Zeile {eintrag.nummer + 1}: "
-            "seit dem Lesen anderswo geändert"
-        )
+        if _hash(ist) != eintrag.pruefsumme:
+            raise Konflikt(
+                f"{pfad.name}, Zeile {eintrag.nummer + 1}: "
+                "seit dem Lesen anderswo geändert"
+            )
 
-    aktuell[eintrag.nummer : eintrag.nummer + hoehe] = neue_zeile.split("\n")
-    pfad.write_text("\n".join(aktuell), encoding="utf-8")
+        aktuell[eintrag.nummer : eintrag.nummer + hoehe] = neue_zeile.split("\n")
+        atomar_schreiben(pfad, "\n".join(aktuell))
 
     return Eintrag(
         titel=titel_lesen(neue_zeile),
@@ -240,19 +284,20 @@ def zeile_anhaengen(pfad: Path, zeile: str) -> None:
     Kommentarblöcke am Dateiende (die Hinweise „noch keine Daten") bleiben
     stehen — die neue Zeile kommt davor.
     """
-    text = pfad.read_text(encoding="utf-8")
-    if not _EINTRAEGE.search(text):
-        raise VaultFehler(f"Keine Überschrift '## Einträge' in {pfad.name}")
+    with _sperre(pfad):
+        text = pfad.read_text(encoding="utf-8")
+        if not _EINTRAEGE.search(text):
+            raise VaultFehler(f"Keine Überschrift '## Einträge' in {pfad.name}")
 
-    alle = text.rstrip("\n").split("\n")
-    ende = len(alle)
-    while ende > 0 and (
-        not alle[ende - 1].strip() or alle[ende - 1].lstrip().startswith("<!--")
-    ):
-        ende -= 1
+        alle = text.rstrip("\n").split("\n")
+        ende = len(alle)
+        while ende > 0 and (
+            not alle[ende - 1].strip() or alle[ende - 1].lstrip().startswith("<!--")
+        ):
+            ende -= 1
 
-    alle.insert(ende, zeile)
-    pfad.write_text("\n".join(alle) + "\n", encoding="utf-8")
+        alle.insert(ende, zeile)
+        atomar_schreiben(pfad, "\n".join(alle) + "\n")
 
 
 def jsonl_lesen(pfad: Path) -> list[dict]:
@@ -277,7 +322,7 @@ def jsonl_lesen(pfad: Path) -> list[dict]:
 
 def jsonl_anhaengen(pfad: Path, satz: dict) -> None:
     pfad.parent.mkdir(parents=True, exist_ok=True)
-    with pfad.open("a", encoding="utf-8") as f:
+    with _sperre(pfad), pfad.open("a", encoding="utf-8") as f:
         f.write(json.dumps(satz, ensure_ascii=False) + "\n")
 
 
@@ -289,10 +334,10 @@ def jsonl_ersetzen(pfad: Path, saetze: list[dict]) -> None:
     Schreiber — die App — und keine Dokumentation, die erhalten bleiben müsste.
     """
     pfad.parent.mkdir(parents=True, exist_ok=True)
-    pfad.write_text(
-        "".join(json.dumps(s, ensure_ascii=False) + "\n" for s in saetze),
-        encoding="utf-8",
-    )
+    with _sperre(pfad):
+        atomar_schreiben(
+            pfad, "".join(json.dumps(s, ensure_ascii=False) + "\n" for s in saetze)
+        )
 
 
 def csv_lesen(pfad: Path) -> list[dict[str, str | None]]:
@@ -309,7 +354,7 @@ def csv_lesen(pfad: Path) -> list[dict[str, str | None]]:
 def csv_anhaengen(pfad: Path, reihe: dict[str, str], spalten: list[str]) -> None:
     puffer = io.StringIO()
     csv.DictWriter(puffer, fieldnames=spalten, extrasaction="ignore").writerow(reihe)
-    with pfad.open("a", encoding="utf-8", newline="") as f:
+    with _sperre(pfad), pfad.open("a", encoding="utf-8", newline="") as f:
         f.write(puffer.getvalue())
 
 
@@ -319,6 +364,10 @@ class Vault:
 
     wurzel: Path
     _zwischenspeicher: dict[Path, list[Eintrag]] = field(default_factory=dict)
+    # Was beim Lesen gefehlt hat. Wird bis in die Oberfläche durchgereicht:
+    # Eine fehlende Datei darf die App nicht umbringen — aber sie darf auch
+    # nicht als „nichts erfasst" durchgehen. Das sind zwei verschiedene Dinge.
+    maengel: list[dict] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.wurzel = Path(self.wurzel).expanduser()
@@ -326,6 +375,15 @@ class Vault:
             raise VaultFehler(
                 f"{self.wurzel} sieht nicht nach dem Vault aus — CLAUDE.md fehlt"
             )
+
+    def _mangel(self, pfad: Path, grund: str) -> None:
+        relativ = str(pfad)
+        try:
+            relativ = str(pfad.relative_to(self.wurzel))
+        except ValueError:
+            pass
+        if not any(m["datei"] == relativ for m in self.maengel):
+            self.maengel.append({"datei": relativ, "grund": grund})
 
     # -- Pfade ---------------------------------------------------------------
     @property
@@ -342,12 +400,19 @@ class Vault:
     # -- Lesen ---------------------------------------------------------------
     def eintraege(self, pfad: Path, frisch: bool = False) -> list[Eintrag]:
         if frisch or pfad not in self._zwischenspeicher:
-            self._zwischenspeicher[pfad] = eintraege_lesen(pfad)
+            try:
+                self._zwischenspeicher[pfad] = eintraege_lesen(pfad)
+            except VaultFehler as fehler:
+                # Eine umbenannte Datei in Obsidian legte sonst jede Seite
+                # lahm — inklusive der Ansicht für unterwegs.
+                self._mangel(pfad, str(fehler).split(":")[0])
+                self._zwischenspeicher[pfad] = []
         return self._zwischenspeicher[pfad]
 
     def vergessen(self) -> None:
         """Zwischenspeicher leeren — vor jedem Schreibvorgang."""
         self._zwischenspeicher.clear()
+        self.maengel.clear()
 
     def aufgaben(self, bereich: str | None = "studium") -> list[Eintrag]:
         alle = self.eintraege(self.datei("Aufgaben.md"))
@@ -383,29 +448,33 @@ class Vault:
         return self.eintraege(self.studium / "Pruefungen.md")
 
     def anwesenheit(self) -> list[dict[str, str | None]]:
-        return csv_lesen(self.studium / "Anwesenheit.csv")
+        pfad = self.studium / "Anwesenheit.csv"
+        try:
+            return csv_lesen(pfad)
+        except (VaultFehler, csv.Error, UnicodeDecodeError) as fehler:
+            self._mangel(pfad, str(fehler).split(":")[0])
+            return []
 
-    def faecher(self) -> list[dict[str, str]]:
-        ordner = self.studium / "Faecher"
+    def _ordner(self, ordner: Path, was: str) -> list[dict[str, str]]:
         if not ordner.is_dir():
-            raise VaultFehler(f"Fächerordner fehlt: {ordner}")
+            self._mangel(ordner, f"{was} fehlt")
+            return []
         gefunden = []
         for p in sorted(ordner.glob("*.md")):
-            fm = frontmatter_lesen(p)
+            try:
+                fm = frontmatter_lesen(p)
+            except (VaultFehler, UnicodeDecodeError) as fehler:
+                self._mangel(p, str(fehler).split(":")[0])
+                continue
             fm["_datei"] = str(p)
             gefunden.append(fm)
         return gefunden
 
+    def faecher(self) -> list[dict[str, str]]:
+        return self._ordner(self.studium / "Faecher", "Fächerordner")
+
     def themenbloecke(self) -> list[dict[str, str]]:
-        ordner = self.studium / "Themenbloecke"
-        if not ordner.is_dir():
-            raise VaultFehler(f"Themenblockordner fehlt: {ordner}")
-        bloecke = []
-        for p in sorted(ordner.glob("*.md")):
-            fm = frontmatter_lesen(p)
-            fm["_datei"] = str(p)
-            bloecke.append(fm)
-        return bloecke
+        return self._ordner(self.studium / "Themenbloecke", "Themenblockordner")
 
     # -- Schreiben -----------------------------------------------------------
     def naechste_id(self, praefix: str) -> str:

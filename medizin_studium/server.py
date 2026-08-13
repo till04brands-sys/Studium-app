@@ -118,6 +118,15 @@ class Griff(BaseHTTPRequestHandler):
         weg = urlparse(self.path)
         pfad, abfrage = weg.path, parse_qs(weg.query)
         try:
+            # Beim Lesen reicht die Host-Prüfung: Fremde Seiten dürfen zwar
+            # anfragen, die Antwort aber nicht auslesen — es sei denn, ein
+            # fremder Name zeigt auf 127.0.0.1 und gilt dem Browser deshalb
+            # als dieselbe Herkunft.
+            gastgeber = (self.headers.get("Host") or "").split(",")[0].strip()
+            if gastgeber and gastgeber.rsplit(":", 1)[0] not in (
+                "127.0.0.1", "localhost", "[::1]"
+            ):
+                return self._json({"fehler": f"fremder Host: {gastgeber}"}, 403)
             if pfad == "/api/zustand":
                 return self._json(self._zustand(abfrage))
             if pfad == "/api/block":
@@ -162,10 +171,48 @@ class Griff(BaseHTTPRequestHandler):
             traceback.print_exc()
             self._json({"fehler": "Serverfehler", "spur": traceback.format_exc()[-800:]}, 500)
 
+    # -- Herkunft ------------------------------------------------------------
+    def _eigene_herkunft(self) -> str | None:
+        """``None``, wenn die Anfrage von unserer eigenen Seite kommt.
+
+        Sonst der Grund für die Ablehnung. Ohne diese Prüfung kann **jede**
+        Webseite, die im Browser offen ist, hier schreiben: Ein POST mit
+        ``Content-Type: text/plain`` gilt als einfache Anfrage, löst keine
+        Vorabanfrage aus und geht durch. Der Browser blockt nur das *Lesen*
+        der Antwort — der Schreibvorgang wäre längst passiert.
+        """
+        erlaubt = {f"http://127.0.0.1:{self.server.server_port}",
+                   f"http://localhost:{self.server.server_port}"}
+
+        # Moderne Browser sagen von sich aus, woher der Klick kam.
+        seite = self.headers.get("Sec-Fetch-Site")
+        if seite and seite not in ("same-origin", "none"):
+            return f"Sec-Fetch-Site: {seite}"
+
+        herkunft = self.headers.get("Origin")
+        if herkunft and herkunft not in erlaubt:
+            return f"Origin: {herkunft}"
+
+        # Gegen DNS-Rebinding: ein fremder Name, der auf 127.0.0.1 zeigt,
+        # trüge hier seinen eigenen Host im Kopf.
+        gastgeber = (self.headers.get("Host") or "").split(",")[0].strip()
+        if gastgeber and gastgeber.rsplit(":", 1)[0] not in ("127.0.0.1", "localhost", "[::1]"):
+            return f"Host: {gastgeber}"
+        return None
+
     def do_POST(self) -> None:
         weg = urlparse(self.path)
         try:
+            grund = self._eigene_herkunft()
+            if grund is not None:
+                return self._json(
+                    {"fehler": "fremde Herkunft", "text":
+                     f"Der Server nimmt nur Anfragen von seiner eigenen Seite an ({grund})."},
+                    403,
+                )
             laenge = int(self.headers.get("Content-Length") or 0)
+            if laenge > 1_000_000:
+                return self._json({"fehler": "Anfrage zu groß"}, 413)
             koerper = json.loads(self.rfile.read(laenge) or b"{}")
             if weg.path == "/api/aufgabe":
                 return self._json(self._aufgabe_setzen(koerper))
