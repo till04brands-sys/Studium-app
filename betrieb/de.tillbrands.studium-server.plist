@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Die Studium-App als Dienst: nach dem Anmelden da, ohne offenes Terminal.
+
+  Angelegt am 13.08.2026. Vorher musste der Server von Hand gestartet werden
+  und lief nur, solange das Fenster offen blieb.
+
+  "--kein-browser" ist nicht optional. Ohne das Argument oeffnet der Server
+  beim Start ein Browserfenster - bei jedem Anmelden, und wegen KeepAlive auch
+  nach jedem Neustart des Prozesses.
+
+  KeepAlive heisst: Faellt er aus, kommt er wieder. ThrottleInterval bremst
+  den Fall, dass er beim Start scheitert (belegter Port, kaputte Konfiguration)
+  und sonst im Sekundentakt neu versuchen wuerde.
+
+  Er hoert ausschliesslich auf 127.0.0.1 und ist aus dem Netz nicht
+  erreichbar. Geschrieben wird nur, was in der Oberflaeche angeklickt wurde.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>de.tillbrands.studium-server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/tillbrands/Vault/Medizin-Studium/.venv/bin/python3</string>
+        <string>-m</string>
+        <string>medizin_studium.server</string>
+        <string>--kein-browser</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/tillbrands/Vault/Medizin-Studium</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONIOENCODING</key>
+        <string>utf-8</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/tillbrands/Library/Logs/studium-server.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tillbrands/Library/Logs/studium-server.log</string>
+</dict>
+</plist>
