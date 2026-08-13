@@ -18,9 +18,14 @@ from pathlib import Path
 
 UMGEBUNGSVARIABLE = "MEDIZIN_STUDIUM_KONFIG"
 
+# Seit dem 13.08.2026 außerhalb von ``~/Documents``. macOS verweigert dort
+# jedem Hintergrundprozess den Zugriff — der nächtliche Schnappschuss kam
+# nicht einmal an seinen eigenen Interpreter. Die alten Pfade stehen bewusst
+# nicht mehr hier: Am alten Ort liegt jetzt ein Symlink, und zwei Wege zum
+# selben Ort sind die Sorte Doppeldeutigkeit, die später jemanden kostet.
 _KANDIDATEN = [
-    "~/Documents/2.Brain/Tills 2.Gehirn/Planer/Sync/app-config.json",
-    "~/Documents/2.Brain/Planer/Sync/app-config.json",
+    "~/Vault/2.Brain/Tills 2.Gehirn/Planer/Sync/app-config.json",
+    "~/Vault/2.Brain/Planer/Sync/app-config.json",
 ]
 
 

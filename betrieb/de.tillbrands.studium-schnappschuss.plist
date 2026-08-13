@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Erneuert die Lese-Ansicht fuer unterwegs (~/Documents/Studium-unterwegs.html).
+
+  Angelegt am 13.08.2026. Vorher wurde die Datei nur von Hand gebaut und stand
+  damit irgendwann auf dem Stand der Vorwoche, ohne dass etwas darauf hinwies.
+
+  Drei Laeufe am Tag statt einem: Ein einzelner Morgenlauf faellt aus, wenn der
+  Rechner um sechs noch schlaeft. launchd holt einen verpassten
+  StartCalendarInterval zwar nach, sobald die Maschine wach ist - aber nur
+  einmal, nicht dreimal. Mit drei Zeiten ist die Datei selten aelter als ein
+  halber Tag.
+
+  Scheitert ein Lauf, wird nichts geschrieben: Die vorhandene Datei bleibt
+  stehen und meldet ihr Alter beim naechsten Oeffnen selbst.
+
+  Alle Pfade liegen unter ~/Vault und nicht unter ~/Documents. Das ist kein
+  Geschmack, sondern Bedingung: macOS sperrt ~/Documents fuer Prozesse ohne
+  eigene Zustimmung, und ein von launchd gestarteter Prozess hat keine. Der
+  erste Versuch scheiterte dort an der eigenen pyvenv.cfg, noch vor jeder
+  Zeile eigenem Code. Wer das hier zurueckverlegt, schaltet den Dienst ab.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>de.tillbrands.studium-schnappschuss</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/tillbrands/Vault/Medizin-Studium/.venv/bin/python3</string>
+        <string>-m</string>
+        <string>medizin_studium.schnappschuss</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/tillbrands/Vault/Medizin-Studium</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Ohne das faellt Python unter launchd auf ASCII zurueck und die
+             erste Ausgabe mit Umlaut beendet den Lauf mit einem
+             UnicodeEncodeError. Die Seite selbst wird ohnehin als UTF-8
+             geschrieben; hier geht es allein um die Logzeilen. -->
+        <key>PYTHONIOENCODING</key>
+        <string>utf-8</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>30</integer></dict>
+    </array>
+
+    <!-- Auch direkt nach dem Anmelden, damit die Datei nach einem
+         ausgeschalteten Wochenende nicht bis zum naechsten Termin alt bleibt. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/tillbrands/Library/Logs/studium-schnappschuss.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tillbrands/Library/Logs/studium-schnappschuss.log</string>
+</dict>
+</plist>

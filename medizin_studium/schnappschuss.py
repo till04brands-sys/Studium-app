@@ -444,11 +444,13 @@ def _main(argv: list[str]) -> int:
         print("  Die vorhandene Datei bleibt stehen und altert sichtbar.")
         return 1
 
-    vorgabe = _einstellung().get(
-        "datei", "~/Library/Mobile Documents/com~apple~CloudDocs/Studium unterwegs.html"
-    )
+    # Die Rückfallpfade meiden ~/Documents und iCloud Drive. Beides ist auf
+    # macOS geschützt: Aus dem Terminal gestartet käme man hin, im täglichen
+    # Hintergrundlauf nicht — und dann scheiterte ausgerechnet der Fall, für
+    # den ein Rückfallpfad da ist.
+    vorgabe = _einstellung().get("datei", "~/Vault/Studium-unterwegs.html")
     ziel = Path(argv[1]) if len(argv) > 1 else Path(
-        _einstellung().get("ordner", "~/Documents/Studium-unterwegs")
+        _einstellung().get("ordner", "~/Vault/Studium-unterwegs")
         if ordner_modus else vorgabe
     ).expanduser()
 
