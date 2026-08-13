@@ -161,7 +161,20 @@ a:hover { color: var(--braun); }
 .tag-name { font-size: 12px; font-weight: 600; }
 .tag-datum { font-size: 11px; font-family: var(--mono); color: var(--grau-hell); margin-left: 6px; }
 
-.netz-koerper { display: grid; grid-template-columns: 54px 1fr; position: relative; }
+.netz-koerper {
+  display: grid; grid-template-columns: 54px 1fr; position: relative;
+  overflow-y: auto;   /* die Höhe des Ausschnitts setzt app.js */
+}
+/* Die Leiste bleibt sichtbar, auch wenn macOS sie sonst ausblendet. Ohne sie
+   sähe das Raster abgeschnitten aus statt gescrollt - und wer den Abend
+   sucht, wüsste nicht, dass er nur weiterschieben muss. */
+.netz-koerper::-webkit-scrollbar { width: 9px; }
+.netz-koerper::-webkit-scrollbar-track { background: var(--linie-zart); }
+.netz-koerper::-webkit-scrollbar-thumb {
+  background: var(--rand); border-radius: 5px;
+  border: 2px solid var(--linie-zart);
+}
+.netz-koerper::-webkit-scrollbar-thumb:hover { background: var(--grau-zart); }
 .stundenleiste { position: relative; height: var(--raster-hoehe, 520px); border-right: 1px solid var(--linie-hell); }
 .stunde {
   position: absolute; left: 0; right: 7px; text-align: right;

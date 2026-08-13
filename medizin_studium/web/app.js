@@ -26,6 +26,10 @@ const STUNDE_HOEHE = 52;
 // Deckel für Ausreißerwochen: Ab hier wird doch gestaucht, sonst schiebt ein
 // einzelner Termin um 6:00 die halbe Startseite nach unten.
 const RASTER_MAX = 660;
+// So viele Stunden stehen gleichzeitig im Bild. Der Rest ist nicht weg,
+// sondern gescrollt — auf der Startseite zählt der Überblick, und ein Raster
+// über eine ganze Bildschirmhöhe ist keiner.
+const SICHT_STUNDEN = 8;
 // Grundraster. Es wächst nach den Daten, schrumpft aber nicht darunter —
 // sonst springt die Höhe der Karte bei jedem Wochenwechsel.
 const STUNDE_VON_VORGABE = 8;
@@ -347,6 +351,21 @@ function rasterZeichnen(d) {
   });
   koerper.append(netz);
   ziel.append(koerper);
+
+  // Der Ausschnitt zeigt SICHT_STUNDEN Stunden, gescrollt wird der Rest.
+  // Abschneiden käme nicht in Frage: Till arbeitet bis 20 Uhr, und ein
+  // Termin, den das Raster nicht mehr hergibt, wäre auf dieser Seite
+  // unsichtbar — nicht „später", sondern weg.
+  const sicht = Math.min(hoehe, SICHT_STUNDEN * 60 * proMinute);
+  koerper.style.maxHeight = `${sicht}px`;
+  // Oben anfangen, wo der Tag anfängt: beim frühesten Termin, nicht bei der
+  // ersten Rasterstunde. Sonst sieht man beim Öffnen leere Zeilen und muss
+  // erst scrollen, um das zu finden, wonach man gesehen hat.
+  const frueheste = alle.reduce(
+    (m, t) => (t.von ? Math.min(m, minuten(t.von)) : m), bis);
+  if (frueheste < bis) {
+    koerper.scrollTop = Math.max(0, (frueheste - von) * proMinute - 8);
+  }
 }
 
 function terminKlassen(t) {
