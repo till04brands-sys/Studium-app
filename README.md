@@ -42,6 +42,37 @@ Terminals.
 Scheitert ein Lauf, bleibt die vorhandene Datei stehen. Sie rechnet ihr Alter
 beim Öffnen selbst aus und sagt ab 36 Stunden, dass sie überholt ist.
 
+## Vault-Sicherung
+
+`betrieb/vault-sicherung.py` packt den Vault täglich, verschlüsselt ihn und
+legt ihn zweimal ab: lokal unter `~/Vault/Sicherungen` und in iCloud Drive
+unter `Vault-Sicherungen`. Sieben Wochentage und zwölf Monatsstände, die sich
+selbst überschreiben — ein Hintergrunddienst darf in geschützte Ordner
+schreiben, aber nicht nachsehen, was dort liegt, also kann die Rotation nicht
+auf einer Dateiliste beruhen.
+
+Vor dem Ablegen wird das Archiv wieder entschlüsselt und durchgezählt. Fehlen
+Dateien oder lässt es sich nicht öffnen, wird nichts überschrieben: Die alte
+Sicherung ist mehr wert als eine neue, die nicht aufgeht.
+
+Einmalig einrichten — der Schlüssel gehört **nicht** ins Repository und nicht
+in den Vault:
+
+```bash
+openssl rand -base64 32 | tee ~/.vault-sicherung-schluessel && chmod 600 ~/.vault-sicherung-schluessel
+```
+
+Den ausgegebenen Schlüssel an einer zweiten Stelle notieren. Geht er mit der
+Platte verloren, ist jede Sicherung unlesbar — auch für dich. Danach:
+
+```bash
+cp betrieb/de.tillbrands.vault-sicherung.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/de.tillbrands.vault-sicherung.plist
+```
+
+Protokoll: `~/Library/Logs/vault-sicherung.log`. Wie zurückgespielt wird, steht
+in `WIEDERHERSTELLEN.txt` neben den Sicherungen selbst.
+
 ## Was hier NICHT liegt
 
 Der Vault und alle Zugangsdaten. Dieses Repository enthält ausschließlich

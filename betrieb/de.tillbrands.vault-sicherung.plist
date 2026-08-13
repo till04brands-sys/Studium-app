@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Verschluesselte Tagessicherung des Vaults.
+
+  Angelegt am 13.08.2026. Bis dahin lag der Vault in ~/Documents und wurde von
+  iCloud gespiegelt - was wie eine Sicherung aussah, aber keine war: Eine
+  Spiegelung uebertraegt auch das Loeschen. Time Machine ist auf diesem Rechner
+  nicht eingerichtet.
+
+  Laeuft mit /usr/bin/python3, nicht mit der venv der Studium-App. Die
+  Sicherung soll auch dann laufen, wenn an der App etwas kaputt ist.
+
+  Ohne ~/.vault-sicherung-schluessel passiert nichts - das Skript sagt dann,
+  was fehlt. Der Schluessel gehoert nicht ins Repository und nicht in den
+  Vault, sonst sichert man ihn mit.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>de.tillbrands.vault-sicherung</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/tillbrands/Vault/Medizin-Studium/betrieb/vault-sicherung.py</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONIOENCODING</key>
+        <string>utf-8</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>13</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/tillbrands/Library/Logs/vault-sicherung.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tillbrands/Library/Logs/vault-sicherung.log</string>
+</dict>
+</plist>
