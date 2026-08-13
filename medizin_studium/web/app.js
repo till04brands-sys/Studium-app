@@ -16,7 +16,16 @@ const KURZ = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni",
                 "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
-const RASTER_HOEHE = 812;
+// Eine Stunde ist immer gleich hoch — nicht die Karte. Vorher war es
+// umgekehrt: feste Gesamthöhe, und die Stunde wurde gestaucht, je weiter die
+// Spanne reichte. Das hielt die Karte ruhig, kostete aber 812 Pixel auch in
+// einer Woche, in der ab dem Nachmittag nichts mehr steht — mehr als eine
+// Bildschirmhöhe für halb leeres Raster. Nebenbei ließen sich zwei Wochen
+// nicht vergleichen, weil dieselbe Stunde mal höher und mal flacher war.
+const STUNDE_HOEHE = 52;
+// Deckel für Ausreißerwochen: Ab hier wird doch gestaucht, sonst schiebt ein
+// einzelner Termin um 6:00 die halbe Startseite nach unten.
+const RASTER_MAX = 660;
 // Grundraster. Es wächst nach den Daten, schrumpft aber nicht darunter —
 // sonst springt die Höhe der Karte bei jedem Wochenwechsel.
 const STUNDE_VON_VORGABE = 8;
@@ -244,12 +253,17 @@ function rasterZeichnen(d) {
     bis = Math.max(bis, Math.ceil(ende / 60) * 60);
   }
   const spanne = bis - von;
-  const proMinute = RASTER_HOEHE / spanne;
+  const hoehe = Math.min(RASTER_MAX, (spanne / 60) * STUNDE_HOEHE);
+  const proMinute = hoehe / spanne;
   const spalten = `repeat(${anzahl}, minmax(0, 1fr))`;
   // Die Stundenlinien im Hintergrund müssen exakt auf den Beschriftungen
   // sitzen. Ein fester Wert im Stylesheet driftet, sobald sich die Spanne
   // ändert — und sie ändert sich, sobald ein Termin aus dem Raster fällt.
+  // Aus demselben Grund steht die Gesamthöhe hier und nicht im Stylesheet:
+  // Zwei Stellen mit derselben Zahl laufen irgendwann auseinander, und dann
+  // sitzen die Linien schief, ohne dass jemand einen Fehler sieht.
   ziel.style.setProperty("--stunde-hoehe", `${60 * proMinute}px`);
+  ziel.style.setProperty("--raster-hoehe", `${hoehe}px`);
 
   // Kopfzeile
   const kopf = el("div", "netz-kopf");
