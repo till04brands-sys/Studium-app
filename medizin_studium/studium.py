@@ -778,7 +778,8 @@ def eingang_zustand(v: Vault) -> dict:
         {"id": e.id, "titel": e.titel, "datei": e.wert("datei"),
          "zeile": e.wert("zeile"), "art": e.wert("art"),
          "hier": e.wert("hier"), "dort": e.wert("dort"),
-         "quelle": e.wert("quelle"), "stand": e.wert("stand")}
+         "quelle": e.wert("quelle"), "stand": e.wert("stand"),
+         "pruefsumme": e.pruefsumme}
         for e in v.konflikte() if e.wert("stand") not in ("entschieden", "erledigt")
     ]
 

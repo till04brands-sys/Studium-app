@@ -62,11 +62,32 @@ def _erlaubte_bereiche() -> list[str]:
 # Nutzlast — jedes Feld einzeln, keine Sammelübernahme
 # ---------------------------------------------------------------------------
 
-def daten(v: Vault, heute: date | None = None) -> dict:
+def google_termine(von: date, bis: date) -> list:
+    """Google-Termine für den Schnappschuss. Wirft nie.
+
+    Ohne diesen Weg sähe die Ansicht für unterwegs **nie** einen Termin, der
+    aus Google kommt. Solange dort nur Arbeit und Training stehen, fällt das
+    nicht auf — sobald ein Kalender auf ``studium`` gemappt wird, fehlten die
+    Vorlesungen stillschweigend. Genau die Sorte Fehler, die man in der
+    Klausurwoche merkt.
+    """
+    try:
+        from . import google_kalender
+
+        if not google_kalender.angemeldet():
+            return []
+        return google_kalender.termine(von, bis)
+    except Exception:
+        return []
+
+
+def daten(v: Vault, heute: date | None = None, extern: list | None = None) -> dict:
     heute = heute or date.today()
-    voll = studium.zustand(v, heute)
+    montag = heute - timedelta(days=heute.weekday())
+    if extern is None:
+        extern = google_termine(montag, montag + timedelta(days=6))
+    voll = studium.zustand(v, heute, extern=extern)
     erlaubt = set(_erlaubte_bereiche())
-    montag = date.fromisoformat(voll["woche_ab"])
 
     tage = []
     for i in range(7):

@@ -599,6 +599,22 @@ a:hover { color: var(--braun); }
 .meldung p { font-size: 13px; color: var(--grau); margin: 4px 0 0; max-width: 80ch; line-height: 1.5; }
 .meldung.fehler { border-left-color: var(--rot); }
 
+.zurueck {
+  background: none; border: 1px solid var(--rand); border-radius: 5px;
+  padding: 2px 8px; font-size: 11px; font-family: var(--mono);
+  color: var(--grau); white-space: nowrap; align-self: flex-start;
+}
+.zurueck:hover { background: #f7f1e7; border-color: var(--navy); color: var(--navy); }
+
+/* Ladebalken: nur ein Strich am oberen Rand. Ein Überlagerungsfenster wäre
+   bei einer Anfrage, die meist 30 ms dauert, schlimmer als das Warten. */
+body::before {
+  content: ""; position: fixed; inset: 0 auto auto 0; height: 2px; width: 0;
+  background: var(--braun); z-index: 100; transition: width .25s ease-out;
+  opacity: 0;
+}
+body[data-laedt]::before { width: 70%; opacity: 1; transition: width 1.2s ease-out; }
+
 .leise { color: var(--grau-hell); }
 .mono { font-family: var(--mono); }
 

@@ -77,6 +77,9 @@ async function holen(weg) {
 async function laden() {
   if (zustand.laedt) return;
   zustand.laedt = true;
+  // Ohne sichtbares Zeichen sieht eine langsame Google-Antwort wie eine
+  // eingefrorene Seite aus.
+  document.body.dataset.laedt = "ja";
   try {
     // „Heute" braucht Google und ist die teurere Anfrage; „Block" liest nur
     // den Vault. Deshalb wird nur geholt, was die sichtbare Seite braucht.
@@ -90,6 +93,7 @@ async function laden() {
     zeigeMeldung("Der Server antwortet nicht", String(fehler.message || fehler), true);
   } finally {
     zustand.laedt = false;
+    delete document.body.dataset.laedt;
   }
 }
 
@@ -441,7 +445,7 @@ function aufgabenZeichnen(d) {
     const kaestchen = el("button", "kaestchen", "✓");
     kaestchen.setAttribute("aria-checked", "false");
     kaestchen.setAttribute("aria-label", `„${a.titel}“ abhaken`);
-    kaestchen.addEventListener("click", () => abhaken(a, kaestchen, zeile));
+    kaestchen.addEventListener("click", () => abhaken(a, kaestchen, zeile, true));
 
     const text = el("div", "text");
     text.append(el("div", "titel", a.titel));
@@ -458,13 +462,16 @@ function aufgabenZeichnen(d) {
   ziel.append(behaelter);
 }
 
-async function abhaken(aufgabe, kaestchen, zeile) {
+/* Abhaken war eine Einbahnstraße: Die Aufgabe verschwand beim nächsten Laden,
+   und ein Fehlklick war nur in Obsidian zu reparieren. Jetzt bleibt die Zeile
+   stehen — durchgestrichen, mit einem Weg zurück. */
+async function abhaken(aufgabe, kaestchen, zeile, erledigt = true) {
   kaestchen.disabled = true;
   try {
     const antwort = await fetch("/api/aufgabe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: aufgabe.id, erledigt: true, pruefsumme: aufgabe.pruefsumme }),
+      body: JSON.stringify({ id: aufgabe.id, erledigt, pruefsumme: aufgabe.pruefsumme }),
     });
     const ergebnis = await antwort.json();
     if (antwort.status === 409) {
@@ -473,13 +480,28 @@ async function abhaken(aufgabe, kaestchen, zeile) {
       return;
     }
     if (!antwort.ok || ergebnis.fehler) throw new Error(ergebnis.fehler || antwort.status);
-    kaestchen.setAttribute("aria-checked", "true");
-    zeile.classList.add("erledigt");
+
+    // Beim Schreiben hat sich die Zeile geändert. Ohne die neue Prüfsumme
+    // schlüge das Zurücknehmen sofort als Konflikt fehl.
+    if (ergebnis.pruefsumme) aufgabe.pruefsumme = ergebnis.pruefsumme;
+    kaestchen.setAttribute("aria-checked", String(erledigt));
+    zeile.classList.toggle("erledigt", erledigt);
+    zurueckKnopf(aufgabe, kaestchen, zeile, erledigt);
   } catch (fehler) {
     zeigeMeldung("Konnte nicht abhaken", String(fehler.message || fehler), true);
   } finally {
     kaestchen.disabled = false;
   }
+}
+
+function zurueckKnopf(aufgabe, kaestchen, zeile, erledigt) {
+  const vorhanden = zeile.querySelector(".zurueck");
+  if (vorhanden) vorhanden.remove();
+  if (!erledigt) return;
+  const knopf = el("button", "zurueck", "rückgängig");
+  knopf.title = "Erledigt-Datum wieder entfernen";
+  knopf.addEventListener("click", () => abhaken(aufgabe, kaestchen, zeile, false));
+  zeile.querySelector(".meta").before(knopf);
 }
 
 /* --- Anki --- */
@@ -560,7 +582,7 @@ function faecherZeichnen(d) {
   for (const f of liste) {
     const kachel = el("button", "kachel" + (f.platzhalter ? " platzhalter" : ""));
     kachel.title = f.platzhalter ? `${f.name} — nicht amtlich` : f.name;
-    kachel.addEventListener("click", () => fachOeffnen(f.id));
+    kachel.addEventListener("click", () => fachOeffnen(f.id, liste));
 
     const oben = el("div", "oben");
     oben.append(el("span", "strich"), el("span", "kurz", f.name),
@@ -745,12 +767,12 @@ function blockFaecherZeichnen(b) {
     ziel.append(el("div", "karte-text", "Keine Fächer in diesem Block erfasst."));
     return;
   }
-  for (const f of b.faecher) ziel.append(fachkarte(f));
+  for (const f of b.faecher) ziel.append(fachkarte(f, b.faecher));
 }
 
-function fachkarte(f) {
+function fachkarte(f, geschwister) {
   const karte = el("button", "fachkarte" + (f.platzhalter ? " platzhalter" : ""));
-  karte.addEventListener("click", () => fachOeffnen(f.id));
+  karte.addEventListener("click", () => fachOeffnen(f.id, geschwister));
   const oben = el("div", "oben");
   oben.append(el("span", "strich"), el("span", "name", f.name), el("span", "ampel " + (f.ampel || "")));
   karte.append(oben);
@@ -1019,10 +1041,34 @@ function konfliktZeile(k) {
   }
   mitte.append(gegen);
   zeile.append(mitte);
-  // Konflikte werden noch nicht von hier aus entschieden — das würde in eine
-  // Markdown-Zeile schreiben, und dafür fehlt der Weg über die Prüfsumme.
-  zeile.append(el("div", "karte-notiz", "in Obsidian entscheiden"));
+  // Entschieden wird weiterhin in Obsidian — hier wird nur vermerkt, dass es
+  // geschehen ist. Sonst stünde der Konflikt für immer im Eingang.
+  const knoepfe = el("div", "knopfreihe");
+  const fertig = el("button", "ja", "In Obsidian erledigt");
+  fertig.title = "Markiert die Zeile in Konflikte.md als entschieden";
+  fertig.addEventListener("click", () => konfliktAbschliessen(k, knoepfe));
+  knoepfe.append(fertig);
+  zeile.append(knoepfe);
   return zeile;
+}
+
+async function konfliktAbschliessen(k, knoepfe) {
+  for (const b of knoepfe.querySelectorAll("button")) b.disabled = true;
+  try {
+    const antwort = await fetch("/api/konflikt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: k.id, pruefsumme: k.pruefsumme }),
+    });
+    const ergebnis = await antwort.json();
+    if (!antwort.ok || ergebnis.fehler) throw new Error(ergebnis.fehler || antwort.status);
+    zustand.hinweis = { titel: "Konflikt abgeschlossen",
+                        text: `${k.id} steht jetzt als entschieden in Konflikte.md.` };
+    laden();
+  } catch (fehler) {
+    zeigeMeldung("Ging nicht", String(fehler.message || fehler), true);
+    for (const b of knoepfe.querySelectorAll("button")) b.disabled = false;
+  }
 }
 
 async function entscheiden(vorschlag, was, knoepfe, zeile) {
@@ -1053,13 +1099,22 @@ async function entscheiden(vorschlag, was, knoepfe, zeile) {
 const STUFEN_NAMEN = { priming: "Priming", notizen: "Notizen", feynman: "Feynman",
                        loci: "Loci", anki: "Anki" };
 
-async function fachOeffnen(id) {
+/* Laufende Nummer gegen Wettläufe: Zwei schnelle Klicks im Fachwechsler
+   stapelten sonst beide Fächer übereinander — zwei Stufenkästen, zwei
+   Themenlisten, Titel vom zuletzt fertigen. Die späte Antwort wird verworfen. */
+let ovLauf = 0;
+
+async function fachOeffnen(id, geschwister) {
+  const lauf = ++ovLauf;
   const overlay = document.getElementById("overlay");
   const koerper = document.getElementById("ovKoerper");
   document.getElementById("ovTitel").textContent = "…";
-  document.getElementById("ovUnter").textContent = "";
+  document.getElementById("ovUnter").textContent = "wird geladen";
   leeren(koerper);
   if (!overlay.open) overlay.showModal();
+  // Der Wechsler gehört zu der Seite, von der aus geöffnet wurde. Sonst zeigt
+  // er von „Heute" aus die womöglich veraltete Fächerliste der Blockseite.
+  if (geschwister) zustand.ovGeschwister = geschwister;
 
   let f;
   try {
@@ -1071,9 +1126,13 @@ async function fachOeffnen(id) {
     f = await antwort.json();
     if (!antwort.ok) throw new Error(f.fehler || antwort.status);
   } catch (fehler) {
+    if (lauf !== ovLauf) return;
+    document.getElementById("ovUnter").textContent = "";
     koerper.append(el("div", "karte-text", String(fehler.message || fehler)));
     return;
   }
+  if (lauf !== ovLauf) return;          // inzwischen wurde ein anderes Fach gefragt
+  leeren(koerper);
 
   document.getElementById("ovTitel").textContent = f.name;
   document.getElementById("ovUnter").textContent = [
@@ -1244,7 +1303,7 @@ function fachUnten(f) {
 
 function fachWechsel(f) {
   const reihe = el("div", "fachwechsel");
-  const liste = (zustand.block && zustand.block.faecher) || (zustand.daten && zustand.daten.faecher) || [];
+  const liste = zustand.ovGeschwister || [];
   for (const andere of liste) {
     const k = el("button", null, andere.name);
     if (andere.id === f.id) k.setAttribute("aria-current", "true");

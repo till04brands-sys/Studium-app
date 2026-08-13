@@ -24,6 +24,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -489,9 +490,17 @@ class Vault:
         try:
             sperre.touch(exist_ok=False)
         except FileExistsError as fehler:
-            raise VaultFehler(
-                "Zaehler.md ist gesperrt — ein anderer Schreibvorgang läuft"
-            ) from fehler
+            # Ohne Verfallszeit sperrt ein einziger Absturz die ID-Vergabe für
+            # immer — und niemand wüsste, warum plötzlich nichts mehr angelegt
+            # werden kann. Eine halbe Minute ist weit jenseits dessen, was ein
+            # Zählerschritt braucht.
+            alter = time.time() - sperre.stat().st_mtime
+            if alter < 30:
+                raise VaultFehler(
+                    "Zaehler.md ist gesperrt — ein anderer Schreibvorgang läuft"
+                ) from fehler
+            sperre.unlink(missing_ok=True)
+            sperre.touch(exist_ok=False)
         try:
             for e in eintraege_lesen(zaehler):
                 if e.wert("praefix") == praefix:

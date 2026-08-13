@@ -32,8 +32,8 @@ from urllib.parse import parse_qs, urlparse
 from . import anki, schnappschuss, studium
 from .konfig import konfig, konfig_pfad
 from .vault import (
-    Eintrag, Konflikt, Vault, feld_setzen, jsonl_ersetzen, jsonl_lesen,
-    zeile_anhaengen,
+    Eintrag, Konflikt, Vault, eintraege_lesen, feld_setzen, felder_lesen,
+    jsonl_ersetzen, jsonl_lesen, zeile_anhaengen,
 )
 
 WEB = Path(__file__).parent / "web"
@@ -43,10 +43,13 @@ WEB = Path(__file__).parent / "web"
 GOOGLE_FRISCH_SEKUNDEN = 120
 
 
+class WertFehler(Exception):
+    """Eine Eingabe stimmt nicht — 400, kein Serverfehler."""
+
+
 class GoogleZwischenspeicher:
     def __init__(self) -> None:
         self._daten: dict[tuple[str, str], tuple[float, list]] = {}
-        self._fehler: str | None = None
         self._sperre = threading.Lock()
 
     def termine(self, von: date, bis: date):
@@ -68,6 +71,9 @@ class GoogleZwischenspeicher:
             return [], {"stand": "fehler", "text": str(fehler)[:300]}
 
         with self._sperre:
+            # Beim Durchblättern der Wochen wüchse der Speicher sonst endlos.
+            if len(self._daten) > 40:
+                self._daten.pop(min(self._daten, key=lambda k: self._daten[k][0]), None)
             self._daten[schluessel] = (time.time(), liste)
         return liste, {"stand": "ok", "aus_speicher": False}
 
@@ -154,8 +160,13 @@ class Griff(BaseHTTPRequestHandler):
             if pfad in ("/mobil", "/mobil/"):
                 # Dieselbe Erzeugung wie der veröffentlichte Schnappschuss,
                 # inklusive der Sperre. Was hier steht, steht auch dort.
+                tag = self._tag(abfrage)
+                montag = tag - timedelta(days=tag.weekday())
+                # Über den Zwischenspeicher, nicht frisch: sonst fragt jeder
+                # Aufruf der Handy-Ansicht Google neu.
+                extern, _ = self.gcal.termine(montag, montag + timedelta(days=6))
                 seite = schnappschuss.html_bauen(
-                    schnappschuss.daten(self.vault, self._tag(abfrage)))
+                    schnappschuss.daten(self.vault, tag, extern=extern))
                 schnappschuss.pruefen(seite)
                 roh = seite.encode("utf-8")
                 self.send_response(200)
@@ -167,9 +178,13 @@ class Griff(BaseHTTPRequestHandler):
             if pfad in ("/", "/index.html"):
                 return self._datei(WEB / "index.html")
             return self._datei(WEB / pfad.lstrip("/"))
+        except WertFehler as fehler:
+            self._json({"fehler": str(fehler)}, 400)
         except Exception:
+            # Die Spur bleibt im Terminal. In der Antwort stünden absolute
+            # Pfade und Codeauszüge, die dort nichts zu suchen haben.
             traceback.print_exc()
-            self._json({"fehler": "Serverfehler", "spur": traceback.format_exc()[-800:]}, 500)
+            self._json({"fehler": "Serverfehler — Einzelheiten stehen im Terminal"}, 500)
 
     # -- Herkunft ------------------------------------------------------------
     def _eigene_herkunft(self) -> str | None:
@@ -218,18 +233,29 @@ class Griff(BaseHTTPRequestHandler):
                 return self._json(self._aufgabe_setzen(koerper))
             if weg.path == "/api/vorschlag":
                 return self._json(self._vorschlag_entscheiden(koerper))
+            if weg.path == "/api/konflikt":
+                return self._json(self._konflikt_abschliessen(koerper))
             self._json({"fehler": "unbekannter Weg"}, 404)
         except Konflikt as fehler:
             # Kein Serverfehler, sondern der Normalfall bei drei Schreibern.
             self._json({"fehler": "konflikt", "text": str(fehler)}, 409)
+        except WertFehler as fehler:
+            self._json({"fehler": str(fehler)}, 400)
         except Exception:
+            # Die Spur bleibt im Terminal. In der Antwort stünden absolute
+            # Pfade und Codeauszüge, die dort nichts zu suchen haben.
             traceback.print_exc()
-            self._json({"fehler": "Serverfehler", "spur": traceback.format_exc()[-800:]}, 500)
+            self._json({"fehler": "Serverfehler — Einzelheiten stehen im Terminal"}, 500)
 
     # -- Fachliches ----------------------------------------------------------
     def _tag(self, abfrage: dict) -> date:
         wert = (abfrage.get("tag") or [None])[0]
-        return date.fromisoformat(wert) if wert else date.today()
+        if not wert:
+            return date.today()
+        try:
+            return date.fromisoformat(wert)
+        except ValueError:
+            raise WertFehler(f"Kein gültiges Datum: {wert!r} (erwartet JJJJ-MM-TT)")
 
     def _zustand(self, abfrage: dict) -> dict:
         heute = self._tag(abfrage)
@@ -286,7 +312,11 @@ class Griff(BaseHTTPRequestHandler):
             date.today().isoformat() if erledigt else None,
         )
         self.vault.vergessen()
-        return {"id": kennung, "erledigt": neu.wert("erledigt"), "zeile": neu.zeile}
+        # Die neue Prüfsumme geht zurück, damit die Oberfläche dieselbe Zeile
+        # gleich wieder anfassen kann — sonst schlüge „rückgängig" als Konflikt
+        # fehl, obwohl niemand sonst geschrieben hat.
+        return {"id": kennung, "erledigt": neu.wert("erledigt"),
+                "pruefsumme": neu.pruefsumme, "zeile": neu.zeile}
 
     def _einstellungen(self) -> dict:
         """Was verbunden ist und wo die Daten liegen.
@@ -348,12 +378,23 @@ class Griff(BaseHTTPRequestHandler):
         if treffer.get("stand") not in (None, "offen", "spaeter"):
             return {"fehler": f"Vorschlag {kennung} ist schon {treffer['stand']}"}
 
-        geschrieben = None
+        geschrieben, vergeben = None, None
         if entscheidung == "uebernehmen":
             ziel = treffer.get("ziel") or {}
             datei, zeile = ziel.get("datei"), ziel.get("zeile")
             if not datei or not zeile:
                 return {"fehler": "Der Vorschlag nennt keine Zieldatei oder keine Zeile"}
+
+            # Platzhalter {{id}} wird erst jetzt gefüllt, aus Zaehler.md.
+            # Eine ID beim Erzeugen des Vorschlags festzulegen hieße, sie zu
+            # verbrennen, wenn er verworfen wird — und zwei gleichzeitig
+            # erzeugte Vorschläge bekämen dieselbe.
+            if "{{id}}" in zeile:
+                praefix = ziel.get("id_praefix")
+                if not praefix:
+                    return {"fehler": "Der Vorschlag hat {{id}}, nennt aber kein id_praefix"}
+                vergeben = self.vault.naechste_id(praefix)
+                zeile = zeile.replace("{{id}}", vergeben)
             # Kein Schreiben außerhalb des Vaults, auch nicht über ../ — und
             # die Absage nennt keine Pfade, die niemanden etwas angehen.
             volle = (self.vault.wurzel / datei).resolve()
@@ -363,6 +404,13 @@ class Griff(BaseHTTPRequestHandler):
                 return {"fehler": f"Zieldatei liegt außerhalb des Vaults: {datei}"}
             if not volle.is_file():
                 return {"fehler": f"Zieldatei gibt es nicht: {datei}"}
+
+            # Eine ID, die schon dasteht, darf nicht ein zweites Mal entstehen —
+            # sonst zeigen alte Verweise plötzlich auf zwei Zeilen (§11).
+            neue_id = (felder_lesen(zeile) or {}).get("id")
+            if neue_id and any(e.id == neue_id for e in eintraege_lesen(volle)):
+                return {"fehler": f"{neue_id} steht schon in {datei}"}
+
             zeile_anhaengen(volle, zeile)
             geschrieben = datei
 
@@ -374,7 +422,33 @@ class Griff(BaseHTTPRequestHandler):
         # nächsten Abgleich wieder auf.
         jsonl_ersetzen(pfad, alle)
         self.vault.vergessen()
-        return {"id": kennung, "stand": treffer["stand"], "geschrieben": geschrieben}
+        return {"id": kennung, "stand": treffer["stand"],
+                "geschrieben": geschrieben, "vergeben": vergeben}
+
+    def _konflikt_abschliessen(self, koerper: dict) -> dict:
+        """Einen Konflikt als entschieden markieren.
+
+        Entschieden wird weiterhin in Obsidian — hier wird nur vermerkt, dass
+        es geschehen ist. Ohne diesen Weg stünde jeder Konflikt für immer im
+        Eingang, auch nachdem er längst erledigt ist.
+        """
+        kennung = koerper.get("id")
+        if not kennung:
+            return {"fehler": "id fehlt"}
+
+        pfad = self.vault.planer / "Sync" / "Konflikte.md"
+        self.vault.vergessen()
+        treffer = next((e for e in self.vault.konflikte() if e.id == kennung), None)
+        if treffer is None:
+            return {"fehler": f"Konflikt {kennung} steht nicht in Konflikte.md"}
+
+        gesehen = koerper.get("pruefsumme")
+        if gesehen and gesehen != treffer.pruefsumme:
+            raise Konflikt(f"Die Zeile zu {kennung} wurde inzwischen geändert.")
+
+        neu = feld_setzen(pfad, treffer, "stand", "entschieden")
+        self.vault.vergessen()
+        return {"id": kennung, "stand": neu.wert("stand")}
 
     def log_message(self, format: str, *args) -> None:
         if "/api/" in str(args[0] if args else ""):
