@@ -29,6 +29,7 @@ wenn an der App etwas kaputt ist.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
@@ -170,21 +171,43 @@ def pruefen(archiv: Path, erwartet: int) -> int:
     return gefunden
 
 
+def _fingerabdruck(pfad: Path) -> str:
+    kessel = hashlib.sha256()
+    with pfad.open("rb") as f:
+        for stueck in iter(lambda: f.read(1 << 20), b""):
+            kessel.update(stueck)
+    return kessel.hexdigest()
+
+
 def ablegen(fertig: Path, namen: list[str]) -> list[str]:
     """Lokal und außer Haus. Das eine ist schnell zurückgespielt, das andere
-    überlebt die Platte."""
+    überlebt die Platte.
+
+    Nach jedem Schreiben wird die abgelegte Datei zurückgelesen und verglichen.
+    Geprüft wurde bis hierher nur die Zwischendatei; was beim Kopieren kaputt
+    geht — volle Platte, abbrechendes iCloud — fiele sonst erst im Ernstfall
+    auf. Ein Hintergrunddienst darf seine eigenen Dateien auch in geschützten
+    Ordnern zurücklesen, genau dafür ist das gemessen worden.
+    """
+    soll = _fingerabdruck(fertig)
     abgelegt = []
     for ordner, wohin in ((LOKAL, "lokal"), (AUSSER_HAUS, "iCloud")):
         try:
             ordner.mkdir(parents=True, exist_ok=True)
+            geschrieben = []
             for name in namen:
                 ziel = ordner / name
                 ziel.write_bytes(fertig.read_bytes())
-            abgelegt.append(f"{wohin}: {', '.join(namen)}")
-        except OSError as fehler:
+                if _fingerabdruck(ziel) != soll:
+                    raise SicherungFehler(
+                        f"{ziel} kam anders an, als sie losgeschickt wurde"
+                    )
+                geschrieben.append(name)
+            abgelegt.append(f"{wohin}: {', '.join(geschrieben)} · geprüft")
+        except (OSError, SicherungFehler) as fehler:
             # Ein unerreichbares iCloud darf die lokale Sicherung nicht
             # verhindern - und umgekehrt.
-            sag(f"  {wohin} nicht beschreibbar: {fehler}")
+            sag(f"  {wohin} fehlgeschlagen: {fehler}")
     return abgelegt
 
 
