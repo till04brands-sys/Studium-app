@@ -30,7 +30,7 @@ from pathlib import Path
 
 from . import anki, studium
 from .konfig import konfig
-from .vault import Vault
+from .vault import Vault, atomar_schreiben
 
 WEB = Path(__file__).parent / "web"
 
@@ -62,30 +62,35 @@ def _erlaubte_bereiche() -> list[str]:
 # Nutzlast — jedes Feld einzeln, keine Sammelübernahme
 # ---------------------------------------------------------------------------
 
-def google_termine(von: date, bis: date) -> list:
-    """Google-Termine für den Schnappschuss. Wirft nie.
+def google_termine(von: date, bis: date) -> tuple[list, str | None]:
+    """Google-Termine für den Schnappschuss. Wirft nie, schweigt aber auch nicht.
 
     Ohne diesen Weg sähe die Ansicht für unterwegs **nie** einen Termin, der
     aus Google kommt. Solange dort nur Arbeit und Training stehen, fällt das
     nicht auf — sobald ein Kalender auf ``studium`` gemappt wird, fehlten die
     Vorlesungen stillschweigend. Genau die Sorte Fehler, die man in der
     Klausurwoche merkt.
+
+    Deshalb reist ein gescheiterter Abruf als Grund mit zurück. Beim Bauen von
+    Hand stünde die Fehlermeldung im Terminal; im nächtlichen Lauf sieht sie
+    niemand, und übrig bliebe eine Seite, die aussieht wie „nichts los".
     """
     try:
         from . import google_kalender
 
         if not google_kalender.angemeldet():
-            return []
-        return google_kalender.termine(von, bis)
-    except Exception:
-        return []
+            return [], None          # gar nicht eingerichtet ist kein Ausfall
+        return google_kalender.termine(von, bis), None
+    except Exception as fehler:
+        return [], f"{type(fehler).__name__}: {fehler}"[:120]
 
 
 def daten(v: Vault, heute: date | None = None, extern: list | None = None) -> dict:
     heute = heute or date.today()
     montag = heute - timedelta(days=heute.weekday())
+    google_ausfall = None
     if extern is None:
-        extern = google_termine(montag, montag + timedelta(days=6))
+        extern, google_ausfall = google_termine(montag, montag + timedelta(days=6))
     voll = studium.zustand(v, heute, extern=extern)
     erlaubt = set(_erlaubte_bereiche())
 
@@ -106,9 +111,19 @@ def daten(v: Vault, heute: date | None = None, extern: list | None = None) -> di
 
     block = voll["block"] or {}
     ankistand = anki.faellig()
+    maengel = list(voll.get("maengel", []))
+    if google_ausfall:
+        maengel.append({"datei": "Google Kalender", "grund": google_ausfall})
 
+    jetzt = datetime.now().astimezone().replace(microsecond=0)
     return {
-        "erzeugt": datetime.now().replace(microsecond=0).isoformat(sep=" "),
+        "erzeugt": jetzt.isoformat(sep=" ")[:16],
+        # Zweite Fassung mit Zeitzone, für die Alterrechnung im Browser. Die
+        # lesbare oben taugt dafür nicht: Sie trägt keine Zone und ist auf
+        # Minuten gekürzt. Engines parsen sie inzwischen zwar (in
+        # JavaScriptCore nachgemessen), aber als *Ortszeit des Geräts* — und
+        # das ist die falsche Annahme, sobald das Telefon woanders steht.
+        "erzeugt_iso": jetzt.isoformat(),
         "heute": voll["heute"],
         "block": {
             "name": block.get("name"),
@@ -137,7 +152,7 @@ def daten(v: Vault, heute: date | None = None, extern: list | None = None) -> di
         "bereiche": sorted(erlaubt),
         # Fehlende Dateien reisen mit. Unterwegs ist der Unterschied zwischen
         # „nichts erfasst" und „nicht gelesen" am wenigsten überprüfbar.
-        "maengel": voll.get("maengel", []),
+        "maengel": maengel,
     }
 
 
@@ -261,7 +276,8 @@ def html_bauen(d: dict) -> str:
 </head>
 <body>
 <main>
-  <div class="stand">Stand {_e(d["erzeugt"])} · nur Lesen</div>
+  <div class="stand" id="stand" data-stand="{_e(d["erzeugt"])}"
+       data-erzeugt="{_e(d["erzeugt_iso"])}">Stand {_e(d["erzeugt"])} · nur Lesen</div>
   {_maengel(d)}
   {_kopf(d)}
   {_klausur(d)}
@@ -281,9 +297,51 @@ def html_bauen(d: dict) -> str:
     Stand {_e(d["erzeugt"])}
   </footer>
 </main>
+<script>{ALTER_SKRIPT}</script>
 </body>
 </html>
 """
+
+
+# Ab hier gilt die Seite als überholt. Erneuert wird täglich; 36 Stunden
+# heißen also, dass mindestens ein Lauf ausgefallen ist — Rechner zu, Fehler
+# beim Bauen, Dienst nicht geladen. Was davon, weiß das Telefon nicht; dass
+# etwas ist, muss es trotzdem sagen.
+ALTERSGRENZE_STUNDEN = 36
+
+# Rechnet beim Öffnen, nicht beim Bauen — zum Bauzeitpunkt ist das Alter immer
+# null. Ohne das hier steht unterwegs ein Datum, das man selbst ins Verhältnis
+# setzen müsste; mit ihm steht da, was man wissen will.
+ALTER_SKRIPT = """
+(function () {
+  var el = document.getElementById("stand");
+  if (!el) return;
+  var erzeugt = new Date(el.getAttribute("data-erzeugt"));
+  if (isNaN(erzeugt.getTime())) return;
+  var stunden = (Date.now() - erzeugt.getTime()) / 3600000;
+  if (stunden < 0) return;   // Uhr des Geraets geht vor: lieber nichts sagen
+  var wie;
+  // Abgerundet, nicht gerundet: 37 Stunden sind ein Tag und dreizehn Stunden,
+  // nicht zwei Tage. Aufrunden liest sich bei einer Warnung dramatischer, ist
+  // aber schlicht die falsche Zahl.
+  if (stunden < 1) wie = "gerade eben";
+  else if (stunden < 24) wie = "vor " + Math.floor(stunden) + " Std.";
+  else {
+    var tage = Math.floor(stunden / 24);
+    wie = "vor " + tage + (tage === 1 ? " Tag" : " Tagen");
+  }
+  var alt = el.getAttribute("data-stand");
+  el.textContent = "Stand " + alt + " \\u2014 " + wie + " \\u00b7 nur Lesen";
+  if (stunden < %(grenze)d) return;
+  var kasten = document.createElement("div");
+  kasten.className = "kasten warn";
+  kasten.textContent =
+    "Diese Seite wurde " + wie + " erzeugt und seitdem nicht erneuert. "
+    + "Termine, Aufgaben und Fristen stehen auf dem Stand von " + alt
+    + " \\u2014 was seither dazukam, fehlt hier.";
+  el.insertAdjacentElement("afterend", kasten);
+})();
+""" % {"grenze": ALTERSGRENZE_STUNDEN}
 
 
 def pruefen(seite: str) -> None:
@@ -344,7 +402,10 @@ def einzeln_bauen(v: Vault, ziel: Path, heute: date | None = None) -> Path:
     pruefen(seite)
     ziel = Path(ziel).expanduser()
     ziel.parent.mkdir(parents=True, exist_ok=True)
-    ziel.write_text(seite, encoding="utf-8")
+    # Atomar, weil diese Datei jetzt im Hintergrund erneuert wird. Ein Abbruch
+    # mitten im Schreiben hinterließe eine halbe Seite — und die sähe unterwegs
+    # aus wie eine Woche ohne Termine.
+    atomar_schreiben(ziel, seite)
     return ziel
 
 
@@ -369,8 +430,19 @@ def bauen(v: Vault, ziel: Path, heute: date | None = None) -> Path:
 def _main(argv: list[str]) -> int:
     ordner_modus = "--ordner" in argv
     argv = [a for a in argv if a != "--ordner"]
-    v = Vault(konfig()["vault"])
-    d = daten(v)
+
+    # Zeitstempel voran, weil diese Ausgabe im Hintergrundlauf in eine
+    # Logdatei fällt. Ein Protokoll ohne Datum sagt nur, dass irgendwann
+    # irgendetwas passiert ist.
+    print(f"\n[{datetime.now().replace(microsecond=0)}] Schnappschuss")
+
+    try:
+        v = Vault(konfig()["vault"])
+        d = daten(v)
+    except Exception as fehler:
+        print(f"Fehlgeschlagen beim Lesen: {type(fehler).__name__}: {fehler}")
+        print("  Die vorhandene Datei bleibt stehen und altert sichtbar.")
+        return 1
 
     vorgabe = _einstellung().get(
         "datei", "~/Library/Mobile Documents/com~apple~CloudDocs/Studium unterwegs.html"
@@ -383,7 +455,12 @@ def _main(argv: list[str]) -> int:
     try:
         pfad = bauen(v, ziel) if ordner_modus else einzeln_bauen(v, ziel)
     except SchnappschussFehler as fehler:
-        print(f"\nAbgebrochen: {fehler}\n")
+        print(f"Abgebrochen: {fehler}")
+        print("  Die vorhandene Datei bleibt stehen und altert sichtbar.")
+        return 1
+    except Exception as fehler:
+        print(f"Fehlgeschlagen: {type(fehler).__name__}: {fehler}")
+        print("  Die vorhandene Datei bleibt stehen und altert sichtbar.")
         return 1
 
     termine = sum(len(t["eintraege"]) for t in d["woche"])
