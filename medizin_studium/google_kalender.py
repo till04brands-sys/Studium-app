@@ -38,6 +38,17 @@ BEREICH_LESEND = "https://www.googleapis.com/auth/calendar.readonly"
 PRAXIS_PRAEFIX = "[Praxis]"
 
 
+class VergleichZuAlt(Exception):
+    """Der Vergleichspunkt liegt weiter zurück, als Google vorhält.
+
+    Google beantwortet „was hat sich seit X geändert" nur für ein begrenztes
+    Fenster — gemessen: sieben Tage gehen, 29 nicht mehr. Danach kommt ein
+    HTTP 410. Das ist der wichtigste Fehlerfall des Morgen-Checks: Wer ihn
+    verschluckt, meldet nach drei Wochen Pause „keine Änderungen", und das ist
+    schlimmer als keine Meldung.
+    """
+
+
 class GoogleFehler(Exception):
     """Der Google-Zugang fehlt, ist abgelaufen oder wurde entzogen."""
 
@@ -255,6 +266,139 @@ def termine(
 
     ergebnis.sort(key=lambda t: (t.tag, t.von or "00:00"))
     return ergebnis
+
+
+def aenderungen(
+    seit: datetime,
+    von: date,
+    bis: date,
+    kalender_ids: Iterable[str] | None = None,
+    verb=None,
+) -> list[dict]:
+    """Was sich seit ``seit`` geändert hat — für den Morgen-Check (§12).
+
+    Wir führen dafür **kein eigenes Abbild** des Kalenders. Google weiß selbst,
+    was sich seit einem Zeitpunkt geändert hat (``updatedMin``); ein selbst
+    gepflegter Vergleichsstand wäre eine zweite Wahrheit, die irgendwann von
+    der ersten abweicht — und Abweichungen fielen ausgerechnet dort auf, wo
+    man dem Diff vertraut.
+
+    Zwei Eigenheiten, die man kennen muss:
+
+    - **Ein gelöschter Termin hat bei Google keinen Titel mehr.** Zurück kommt
+      im Wesentlichen nur die Kennung. Deshalb bleibt ``titel`` hier ``None``;
+      wer den Namen braucht, schlägt die ``gcal``-Kennung in ``Kalender.md``
+      nach. Der Vault erinnert sich, Google nicht.
+    - **``created`` unterscheidet neu von geändert.** Ohne das wäre jede
+      Verschiebung ein neuer Termin.
+    """
+    verb = verb or verbindung()
+    if kalender_ids is None:
+        gewaehlt = dienst("google_calendar").get("kalender")
+        kalender_ids = gewaehlt or [k["id"] for k in kalender(verb)]
+
+    zeitmin = datetime.combine(von, time.min).astimezone().isoformat()
+    zeitmax = datetime.combine(bis + timedelta(days=1), time.min).astimezone().isoformat()
+    seit_iso = seit.astimezone().isoformat()
+
+    from googleapiclient.errors import HttpError
+
+    ergebnis: list[dict] = []
+    for kid in kalender_ids:
+        seite = None
+        while True:
+            try:
+                antwort = verb.events().list(
+                    calendarId=kid,
+                    timeMin=zeitmin,
+                    timeMax=zeitmax,
+                    updatedMin=seit_iso,
+                    showDeleted=True,       # sonst fehlen genau die Absagen
+                    singleEvents=True,
+                    orderBy="startTime",
+                    maxResults=250,
+                    pageToken=seite,
+                ).execute()
+            except HttpError as fehler:
+                if fehler.resp.status == 410:
+                    raise VergleichZuAlt(
+                        f"Google hält Änderungen seit {seit:%d.%m.%Y %H:%M} nicht "
+                        "mehr vor. Ein Diff ist für diesen Zeitraum nicht "
+                        "möglich — die Woche muss von Hand angesehen werden."
+                    ) from fehler
+                if fehler.resp.status in (403, 404):
+                    ergebnis.append({
+                        "art": "fehler", "id": None, "kalender": kid,
+                        "titel": f"Kalender nicht lesbar: {kid}",
+                        "tag": None, "von": None, "bis": None,
+                        "bereich": "extern", "geaendert": None,
+                    })
+                    break
+                raise
+            for eintrag in antwort.get("items", []):
+                ergebnis.append(_als_aenderung(eintrag, kid, seit))
+            seite = antwort.get("nextPageToken")
+            if not seite:
+                break
+
+    ergebnis.sort(key=lambda a: (a["tag"] or date.max, a["von"] or "00:00"))
+    return ergebnis
+
+
+def _zeitpunkt_weich(wert: str | None) -> datetime | None:
+    """Wie ``_zeitpunkt``, gibt aber ``None`` statt zu werfen.
+
+    Google setzt bei gelöschten Einträgen ``created`` auf
+    ``0000-12-31T00:00:00.000Z``. Das Jahr null gibt es nicht, und
+    ``fromisoformat`` sagt das auch deutlich — mitten im Morgen-Check ist ein
+    Absturz aber die schlechteste aller Antworten.
+    """
+    if not wert:
+        return None
+    try:
+        return _zeitpunkt(wert)
+    except ValueError:
+        return None
+
+
+# Googles Platzhalter-Titel für gelöschte Einträge. Wer ihn durchreicht,
+# schreibt Till morgens „CANCELLED abgesagt" hin, statt den echten Namen aus
+# dem Vault zu holen.
+GELOESCHT_PLATZHALTER = {"CANCELLED", "Cancelled", "cancelled"}
+
+
+def _als_aenderung(eintrag: dict, kalender_id: str, seit: datetime) -> dict:
+    abgesagt = eintrag.get("status") == "cancelled"
+    erstellt = _zeitpunkt_weich(eintrag.get("created"))
+    # Ohne lesbares Erstelldatum gilt der Termin als geändert, nicht als neu.
+    # Ein alter Termin, der als „geändert" gemeldet wird, ist harmlos; als
+    # „neu" wäre er eine Falschmeldung.
+    neu = erstellt is not None and erstellt >= seit
+
+    tag = vonzeit = biszeit = None
+    start, ende = eintrag.get("start") or {}, eintrag.get("end") or {}
+    if "date" in start:
+        tag = date.fromisoformat(start["date"])
+    elif "dateTime" in start:
+        beginn = _zeitpunkt(start["dateTime"])
+        tag, vonzeit = beginn.date(), beginn.strftime("%H:%M")
+        if "dateTime" in ende:
+            biszeit = _zeitpunkt(ende["dateTime"]).strftime("%H:%M")
+
+    titel = (eintrag.get("summary") or "").strip() or None
+    if titel in GELOESCHT_PLATZHALTER:
+        titel = None            # der echte Name steht nur noch im Vault
+    return {
+        "art": "abgesagt" if abgesagt else ("neu" if neu else "geaendert"),
+        "id": "gcal:" + eintrag["id"],
+        "kalender": kalender_id,
+        "titel": titel.removeprefix(PRAXIS_PRAEFIX).strip() if titel else None,
+        "tag": tag,
+        "von": vonzeit,
+        "bis": biszeit,
+        "bereich": _bereich(kalender_id, titel or ""),
+        "geaendert": eintrag.get("updated"),
+    }
 
 
 # -- Kommandozeile -----------------------------------------------------------
