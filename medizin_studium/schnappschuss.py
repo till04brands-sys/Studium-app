@@ -25,6 +25,7 @@ from __future__ import annotations
 import html
 import re
 import shutil
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -405,7 +406,20 @@ def einzeln_bauen(v: Vault, ziel: Path, heute: date | None = None) -> Path:
     # Atomar, weil diese Datei jetzt im Hintergrund erneuert wird. Ein Abbruch
     # mitten im Schreiben hinterließe eine halbe Seite — und die sähe unterwegs
     # aus wie eine Woche ohne Termine.
-    atomar_schreiben(ziel, seite)
+    #
+    # Ein frisch angelegter Ordner in iCloud Drive ist für einen Moment noch
+    # nicht in dessen Verwaltung aufgenommen; das Umbenennen scheitert dann mit
+    # „Operation not permitted", obwohl die Rechte stimmen. Beim zweiten
+    # Versuch geht es. Nachgemessen am 15.08.2026: genau ein Lauf betroffen,
+    # alle folgenden sauber.
+    for versuch in (1, 2):
+        try:
+            atomar_schreiben(ziel, seite)
+            break
+        except PermissionError:
+            if versuch == 2:
+                raise
+            time.sleep(2)
     return ziel
 
 

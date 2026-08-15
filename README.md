@@ -20,9 +20,12 @@ Dann <http://127.0.0.1:8770> öffnen.
 
 ## Täglicher Schnappschuss
 
-`~/Vault/Studium-unterwegs.html` ist eine Lese-Ansicht für unterwegs — eine
-einzige Datei, Stil und Schriften eingebettet, ohne Klausurergebnisse und ohne
-Anwesenheit. Sie wird dreimal täglich neu geschrieben:
+`iCloud Drive → Studium → Studium unterwegs.html` ist eine Lese-Ansicht für
+unterwegs — eine einzige Datei, Stil und Schriften eingebettet, ohne
+Klausurergebnisse und ohne Anwesenheit. Über iCloud liegt sie auf dem iPhone
+in der Dateien-App; die Einzeldatei ist genau dafür da, weil deren Vorschau
+Nachbardateien nicht zuverlässig mitlädt. Sie wird dreimal täglich neu
+geschrieben:
 
 ```bash
 cp betrieb/de.tillbrands.studium-schnappschuss.plist ~/Library/LaunchAgents/
