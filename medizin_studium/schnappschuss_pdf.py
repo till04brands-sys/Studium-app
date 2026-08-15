@@ -20,6 +20,11 @@ Browser, kein Rendern eines Zwischenschritts.
 hineingeschrieben wird, kann auch nicht ins PDF geraten. ``pruefen()`` scannt
 zusätzlich den extrahierten Text als zweite Sicherung — falls der Payload sich
 einmal ändert und dabei doch ein verbotenes Feld hineinrutscht.
+
+**Das Seitenformat ist keine feste A4-Seite**, sondern eine Karte, deren Höhe
+sich nach dem Inhalt richtet (siehe ``_zuschneiden``). Eine ruhige Woche hätte
+sonst eine Din-A4-Seite mit 80 % Leerraum darunter ergeben — das sieht nicht
+nach „nichts los" aus, sondern nach kaputt.
 """
 
 from __future__ import annotations
@@ -30,9 +35,9 @@ import time
 from datetime import date
 from pathlib import Path
 
-from reportlab.lib import colors
+from pypdf import PdfReader, PdfWriter
+from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
@@ -40,140 +45,233 @@ from reportlab.pdfgen import canvas
 from .schnappschuss import VERBOTEN, SchnappschussFehler
 from .vault import Vault, atomar_schreiben_bytes
 
-BREITE, HOEHE = A4
-RAND = 16 * mm
-NAVY = colors.HexColor("#1b3358")
-TINTE = colors.HexColor("#17233a")
-GRAU = colors.HexColor("#6f6a62")
-GRAU_HELL = colors.HexColor("#8b857c")
-LINIE = colors.HexColor("#ddd5c8")
-WARN_HG = colors.HexColor("#fbf1de")
-WARN_RAND = colors.HexColor("#d9a441")
-ROT = colors.HexColor("#a33526")
+# Breite wie eine bequeme Lesespalte auf dem Telefon, nicht wie Druckpapier —
+# die Seite wird nie gedruckt, nur in Quick Look angesehen.
+BREITE = 420
+HOEHE_ARBEITSFLAECHE = 4000  # großzügig; wird am Ende auf den Inhalt gekürzt
+RAND = 18
+
+# Palette aus dem Entwurf vom 10.08.2026 (medizin_studium/web/stil.css) —
+# dieselben Werte, damit das PDF nicht wie ein zweites, fremdes Programm wirkt.
+PAPIER = HexColor("#efebe4")
+KARTE = HexColor("#fffdf9")
+NAVY = HexColor("#1b3358")
+TINTE = HexColor("#17233a")
+GRAU = HexColor("#6f6a62")
+GRAU_HELL = HexColor("#8b857c")
+GRAU_ZART = HexColor("#a09a90")
+LINIE = HexColor("#e2dcd2")
+ROT = HexColor("#a33526")
+GRUEN = HexColor("#3f6b47")
+WARN_HG = HexColor("#fbf1de")
+WARN_RAND = HexColor("#d9a441")
+BAND_CREME = HexColor("#eae4d9")
 
 WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag",
               "Samstag", "Sonntag"]
 
 
-class _Seite:
-    """Dünner Wrapper um ``canvas.Canvas``: merkt sich die y-Position und
-    bricht die Seite um, statt dass jede Zeichenfunktion selbst rechnen muss.
+def _kuerzen(text: str, breite: float, schrift: str = "Helvetica", groesse: float = 9) -> str:
+    """Auf eine Zeile kürzen, mit „…" statt hartem Abschneiden.
+
+    ``drawString`` bricht nie um — ein zu langer Titel liefe sonst unsichtbar
+    über den rechten Rand hinaus. Das fiel beim ersten Bau nicht auf, weil der
+    Text in der PDF-Textschicht trotzdem vorhanden ist (``extract_text()``
+    findet ihn), nur eben außerhalb der sichtbaren Seite.
     """
-
-    def __init__(self, puffer: io.BytesIO) -> None:
-        self.c = canvas.Canvas(puffer, pagesize=A4)
-        self.y = HOEHE - RAND
-        self._neue_seite_kopf = None
-
-    def platz_sichern(self, hoehe: float) -> None:
-        if self.y - hoehe < RAND:
-            self.seitenumbruch()
-
-    def seitenumbruch(self) -> None:
-        self.c.showPage()
-        self.y = HOEHE - RAND
-        if self._neue_seite_kopf:
-            self._neue_seite_kopf(self)
-
-    def zeile(self, text: str, *, groesse: float = 10, farbe=TINTE,
-              fett: bool = False, x: float | None = None,
-              abstand_danach: float = 4) -> None:
-        self.platz_sichern(groesse + abstand_danach)
-        schrift = "Helvetica-Bold" if fett else "Helvetica"
-        self.c.setFont(schrift, groesse)
-        self.c.setFillColor(farbe)
-        self.c.drawString(x if x is not None else RAND, self.y - groesse, text)
-        self.y -= groesse + abstand_danach
-
-    def trennlinie(self, abstand: float = 8) -> None:
-        self.platz_sichern(abstand)
-        self.c.setStrokeColor(LINIE)
-        self.c.line(RAND, self.y, BREITE - RAND, self.y)
-        self.y -= abstand
-
-
-def _kuerzen(text: str, breite: float, schrift: str, groesse: float) -> str:
     if stringWidth(text, schrift, groesse) <= breite:
         return text
     while text and stringWidth(text + "…", schrift, groesse) > breite:
         text = text[:-1]
-    return text + "…"
+    return (text + "…") if text else "…"
+
+
+class _Seite:
+    """Zeichnet von oben nach unten, merkt sich die aktuelle y-Position."""
+
+    def __init__(self, puffer: io.BytesIO) -> None:
+        self.c = canvas.Canvas(puffer, pagesize=(BREITE, HOEHE_ARBEITSFLAECHE))
+        self.hoehe = HOEHE_ARBEITSFLAECHE
+        self.y = self.hoehe - RAND
+        self.c.setFillColor(PAPIER)
+        self.c.rect(0, 0, BREITE, self.hoehe, fill=1, stroke=0)
+
+    def zeile(self, text: str, *, groesse: float = 9.5, farbe=TINTE,
+              fett: bool = False, x: float | None = None,
+              abstand_danach: float = 4, kuerzen_auf: float | None = None) -> None:
+        schrift = "Helvetica-Bold" if fett else "Helvetica"
+        x0 = x if x is not None else RAND + 12
+        if kuerzen_auf is not None:
+            text = _kuerzen(text, kuerzen_auf, schrift, groesse)
+        self.c.setFont(schrift, groesse)
+        self.c.setFillColor(farbe)
+        self.c.drawString(x0, self.y - groesse, text)
+        self.y -= groesse + abstand_danach
+
+    def abstand(self, hoehe: float) -> None:
+        self.y -= hoehe
+
+
+def _karte_start(s: _Seite) -> float:
+    """Merkt sich die obere Kante einer Karte; der Hintergrund wird erst
+    gezeichnet, wenn die untere Kante bekannt ist (siehe ``_karte_ende``)."""
+    return s.y
+
+
+def _karte_ende(s: _Seite, oben: float, *, rand=LINIE, innenabstand_unten: float = 12) -> None:
+    """Zieht den Kartenrahmen um einen bereits gezeichneten Abschnitt.
+
+    Reportlab zeichnet in Aufrufreihenfolge übereinander — ein gefüllter
+    Kartenhintergrund müsste also *vor* dem Text stehen, aber die Kartenhöhe
+    ist erst bekannt, wenn der Text fertig ist. Deshalb nur ein Rahmen
+    (Linie), keine Füllung: Der bewusst wärmere Seitenhintergrund (``PAPIER``)
+    trägt die Kartenwirkung, der Rahmen zieht die Grenze.
+    """
+    unten = s.y - innenabstand_unten
+    s.c.setStrokeColor(rand)
+    s.c.setLineWidth(1)
+    s.c.roundRect(RAND, unten, BREITE - 2 * RAND, oben - unten, 5, fill=0, stroke=1)
+    s.y = unten - 14
 
 
 def _kasten_warn(s: _Seite, zeilen: list[str]) -> None:
+    """Warnkasten mit echter Füllung — als einziger Kasten im Voraus bekannter
+    Höhe (feste Zeilenzahl), kann er vor dem Text gezeichnet werden."""
     if not zeilen:
         return
     hoehe = 14 + 12 * len(zeilen)
-    s.platz_sichern(hoehe + 8)
+    oben = s.y
     s.c.setFillColor(WARN_HG)
     s.c.setStrokeColor(WARN_RAND)
-    s.c.roundRect(RAND, s.y - hoehe, BREITE - 2 * RAND, hoehe, 3, fill=1, stroke=1)
-    y = s.y - 14
+    s.c.roundRect(RAND, oben - hoehe, BREITE - 2 * RAND, hoehe, 4, fill=1, stroke=1)
+    s.y -= 10
+    for i, zeile in enumerate(zeilen):
+        s.zeile(zeile, groesse=8.5, farbe=TINTE, fett=(i == 0),
+                kuerzen_auf=BREITE - 2 * RAND - 24, abstand_danach=3)
+    s.y = oben - hoehe - 10
+
+
+def _kopfband(s: _Seite, d: dict) -> None:
+    hoehe = 58
+    s.c.setFillColor(NAVY)
+    s.c.roundRect(RAND, s.y - hoehe, BREITE - 2 * RAND, hoehe, 6, fill=1, stroke=0)
+    s.c.setFillColor(HexColor("#f2ede3"))
+    s.c.setFont("Helvetica-Bold", 15)
+    s.c.drawString(RAND + 14, s.y - 22, "Studium — unterwegs")
     s.c.setFont("Helvetica", 8.5)
-    s.c.setFillColor(TINTE)
-    for zeile in zeilen:
-        s.c.drawString(RAND + 8, y, zeile)
-        y -= 12
-    s.y -= hoehe + 10
+    s.c.setFillColor(BAND_CREME)
+    s.c.drawString(RAND + 14, s.y - 38, f"Stand {d['erzeugt']} · nur Lesen")
+    tage = (d["block"] or {}).get("tage_bis_klausur")
+    if tage is not None:
+        etikett = f"KLAUSUR IN {tage} T."
+        breite_text = stringWidth(etikett, "Helvetica-Bold", 9.5)
+        s.c.setFont("Helvetica-Bold", 9.5)
+        s.c.setFillColor(HexColor("#f2ede3"))
+        s.c.drawString(BREITE - RAND - 14 - breite_text, s.y - 30, etikett)
+    s.y -= hoehe + 14
 
 
-def _kopf(s: _Seite, d: dict) -> None:
-    s.zeile("Studium — unterwegs", groesse=17, fett=True, farbe=NAVY, abstand_danach=3)
-    s.zeile(f"Stand {d['erzeugt']} · nur Lesen", groesse=8.5, farbe=GRAU_HELL, abstand_danach=10)
-
-    b = d["block"]
+def _block(s: _Seite, d: dict) -> None:
+    b = d["block"] or {}
+    oben = _karte_start(s)
+    s.y -= 12
     if b.get("name"):
+        s.zeile(b["name"], groesse=13, fett=True, farbe=NAVY,
+                kuerzen_auf=BREITE - 2 * RAND - 24, abstand_danach=3)
         unter = f"Woche {b['woche']} von {b['wochen_gesamt']} · {b['phase']}"
         if b.get("platzhalter"):
             unter += " · nicht amtlich"
-        s.zeile(b["name"], groesse=13, fett=True, abstand_danach=2)
-        s.zeile(unter, groesse=9, farbe=GRAU, abstand_danach=8)
+        s.zeile(unter, groesse=8.5, farbe=GRAU, abstand_danach=2)
     else:
-        s.zeile("Kein Themenblock erfasst", groesse=13, fett=True, abstand_danach=8)
-
-    tage = b.get("tage_bis_klausur")
-    if tage is not None:
-        s.zeile(f"Blockklausur in {tage} Tagen", groesse=10.5, fett=True, farbe=NAVY,
-                abstand_danach=8)
-
-    s.trennlinie()
+        s.zeile("Kein Themenblock erfasst", groesse=12, fett=True, abstand_danach=2)
+    _karte_ende(s, oben)
 
 
 def _woche(s: _Seite, d: dict) -> None:
-    s.zeile("DIESE WOCHE", groesse=8.5, fett=True, farbe=GRAU, abstand_danach=6)
+    oben = _karte_start(s)
+    s.y -= 12
+    s.zeile("DIESE WOCHE", groesse=8, fett=True, farbe=GRAU_HELL, abstand_danach=8)
+
     irgendwas = any(t["eintraege"] for t in d["woche"])
     if not irgendwas:
         s.zeile(f"Keine Termine in den freigegebenen Bereichen "
-                f"({', '.join(d['bereiche'])}) — nicht „nichts los“, "
-                "sondern nichts erfasst.", groesse=9, farbe=GRAU, abstand_danach=10)
+                f"({', '.join(d['bereiche'])}) — nicht „nichts los“,",
+                groesse=9, farbe=GRAU, kuerzen_auf=BREITE - 2 * RAND - 24, abstand_danach=2)
+        s.zeile("sondern nichts erfasst.", groesse=9, farbe=GRAU, abstand_danach=4)
+        _karte_ende(s, oben)
         return
 
     for tag in d["woche"]:
         if not tag["eintraege"]:
             continue
         tagdatum = date.fromisoformat(tag["iso"])
-        heute = " · heute" if tag["iso"] == d["heute"] else ""
-        s.zeile(f"{WOCHENTAGE[tagdatum.weekday()]} {tagdatum.day}.{tagdatum.month}.{heute}",
-                groesse=10, fett=True, abstand_danach=3)
+        heute = tag["iso"] == d["heute"]
+        etikett = f"{WOCHENTAGE[tagdatum.weekday()]} {tagdatum.day}.{tagdatum.month}."
+        if heute:
+            s.c.setFillColor(NAVY)
+            s.c.roundRect(RAND + 12, s.y - 13, stringWidth(etikett, "Helvetica-Bold", 9.5) + 12, 15, 3,
+                          fill=1, stroke=0)
+            s.zeile(etikett, groesse=9.5, fett=True, farbe=HexColor("#f2ede3"),
+                    x=RAND + 18, abstand_danach=4)
+        else:
+            s.zeile(etikett, groesse=9.5, fett=True, abstand_danach=4)
         for e in tag["eintraege"]:
-            praefix = "▸" if not e["gestrichen"] else "▸ (abgesagt)"
-            titel = e["titel"] + ("" if not e["gestrichen"] else "")
-            farbe = GRAU_HELL if e["gestrichen"] else TINTE
-            s.zeile(f"  {praefix} {e['zeit']}  {titel}", groesse=9, farbe=farbe,
-                    abstand_danach=2)
-        s.y -= 4
-    s.trennlinie()
+            gestrichen = e["gestrichen"]
+            farbe = GRAU_ZART if gestrichen else TINTE
+            zusatz = "  (abgesagt)" if gestrichen else ""
+            s.zeile(f"{e['zeit']}", groesse=8.5, farbe=GRAU, x=RAND + 24, abstand_danach=0)
+            s.zeile(f"{e['titel']}{zusatz}", groesse=9, farbe=farbe, x=RAND + 78,
+                    kuerzen_auf=BREITE - RAND - 78 - RAND, abstand_danach=1)
+            s.y -= 2
+        s.y -= 6
+    _karte_ende(s, oben)
 
 
-def _liste(s: _Seite, titel: str, zeilen: list[str], leer: str) -> None:
-    s.zeile(titel, groesse=8.5, fett=True, farbe=GRAU, abstand_danach=6)
+def _liste_karte(s: _Seite, titel: str, zeilen: list[tuple[str, str, bool]], leer: str) -> None:
+    """``zeilen``: Liste aus (Titel, Zusatz, ist_dringend)."""
+    oben = _karte_start(s)
+    s.y -= 12
+    s.zeile(titel, groesse=8, fett=True, farbe=GRAU_HELL, abstand_danach=8)
     if not zeilen:
-        s.zeile(leer, groesse=9, farbe=GRAU, abstand_danach=8)
+        s.zeile(leer, groesse=9, farbe=GRAU, abstand_danach=4)
     else:
-        for z in zeilen:
-            s.zeile(f"  · {z}", groesse=9, abstand_danach=3)
-        s.y -= 4
-    s.trennlinie()
+        for haupt, zusatz, dringend in zeilen:
+            farbe_zusatz = ROT if dringend else GRAU_HELL
+            platz_zusatz = stringWidth(zusatz, "Helvetica", 8.5) + 8 if zusatz else 0
+            # y VOR dem Zeichnen der Hauptzeile merken: ``s.zeile`` verschiebt
+            # ``s.y`` am Ende schon auf die nächste Zeile. Wer erst danach
+            # liest, zeichnet den Zusatz eine Zeile zu tief — genau das ist
+            # beim ersten Bau passiert und erst beim Draufsehen aufgefallen,
+            # weil die reine Textextraktion die Y-Position nicht prüft.
+            baseline = s.y - 9.5
+            s.zeile(haupt, groesse=9.5, x=RAND + 12,
+                    kuerzen_auf=BREITE - 2 * RAND - 24 - platz_zusatz, abstand_danach=1)
+            if zusatz:
+                s.c.setFont("Helvetica", 8.5)
+                s.c.setFillColor(farbe_zusatz)
+                s.c.drawRightString(BREITE - RAND - 12, baseline, zusatz)
+            s.y -= 3
+    _karte_ende(s, oben)
+
+
+def _zuschneiden(pdf_bytes: bytes, letzte_y: float) -> bytes:
+    """Die Arbeitsfläche war absichtlich hoch genug für jeden Inhalt — jetzt
+    wird auf das gekürzt, was tatsächlich gezeichnet wurde.
+
+    Ohne das hätte eine ruhige Woche eine riesige leere Fläche unter dem
+    Inhalt — das sieht nicht nach „wenig los" aus, sondern nach kaputter
+    Seite. Reportlab kennt die Endhöhe erst, wenn alles gezeichnet ist,
+    deshalb der Zuschnitt hinterher statt vorher.
+    """
+    leser = PdfReader(io.BytesIO(pdf_bytes))
+    schreiber = PdfWriter()
+    for i, seite in enumerate(leser.pages):
+        if i == len(leser.pages) - 1:
+            seite.mediabox.lower_left = (0, max(0, letzte_y - RAND))
+        schreiber.add_page(seite)
+    ausgabe = io.BytesIO()
+    schreiber.write(ausgabe)
+    return ausgabe.getvalue()
 
 
 def bauen(d: dict) -> bytes:
@@ -181,62 +279,79 @@ def bauen(d: dict) -> bytes:
     puffer = io.BytesIO()
     s = _Seite(puffer)
 
-    def kopfzeile_folgeseiten(seite: _Seite) -> None:
-        seite.zeile(f"Studium — unterwegs · Stand {d['erzeugt']}", groesse=8,
-                     farbe=GRAU_HELL, abstand_danach=8)
-
-    s._neue_seite_kopf = kopfzeile_folgeseiten
-
     maengel = d.get("maengel") or []
     if maengel:
         _kasten_warn(s, [
             "Unvollständig — was daraus käme, ist ungelesen, nicht „nichts erfasst“:",
-            *[f"  {m['datei']} ({m['grund']})" for m in maengel],
+            *[f"{m['datei']} ({m['grund']})" for m in maengel],
         ])
+        s.abstand(10)
 
-    _kopf(s, d)
+    _kopfband(s, d)
+    _block(s, d)
+    s.abstand(10)
     _woche(s, d)
+    s.abstand(10)
 
     aufgaben = [
-        f"{a['titel']}" + (f"  ({a['ueberfaellig']} T. über)" if a["ueberfaellig"] > 0 else "  (heute)")
+        (a["titel"],
+         f"{a['ueberfaellig']} T. über" if a["ueberfaellig"] > 0 else "heute",
+         a["ueberfaellig"] > 0)
         for a in d["aufgaben"]
     ]
-    _liste(s, "HEUTE ZU TUN", aufgaben, "Nichts fällig.")
+    _liste_karte(s, "HEUTE ZU TUN", aufgaben, "Nichts fällig.")
+    s.abstand(10)
 
     fristen = [
-        f"{f['titel']}  " + (f"in {f['tage']} Tagen" if f["tage"] is not None else "Datum unbekannt")
+        (f["titel"],
+         f"in {f['tage']} T." if f["tage"] is not None else "Datum unbekannt",
+         f["tage"] is not None and f["tage"] <= 14)
         for f in d["fristen"]
     ]
-    _liste(s, "FRISTEN", fristen, "Keine Frist in Sichtweite.")
+    _liste_karte(s, "FRISTEN", fristen, "Keine Frist in Sichtweite.")
+    s.abstand(10)
 
     a = d["anki"]
-    s.zeile("ANKI FÄLLIG", groesse=8.5, fett=True, farbe=GRAU, abstand_danach=6)
+    oben = _karte_start(s)
+    s.y -= 12
+    s.zeile("ANKI FÄLLIG", groesse=8, fett=True, farbe=GRAU_HELL, abstand_danach=8)
     if a["stand"] == "ok":
-        s.zeile(f"{a['gesamt']} Karten über {a['decks']} Decks", groesse=9, abstand_danach=8)
+        s.zeile(f"{a['gesamt']} Karten über {a['decks']} Decks", groesse=9.5, abstand_danach=4)
     else:
         text = "Anki läuft nicht" if a["stand"] == "aus" else "Anki antwortet, liefert aber nichts"
-        s.zeile(f"{text} — Stand unbekannt, nicht null.", groesse=9, farbe=ROT, abstand_danach=8)
+        s.zeile(f"{text} — Stand unbekannt, nicht null.", groesse=9, farbe=ROT,
+                kuerzen_auf=BREITE - 2 * RAND - 24, abstand_danach=4)
+    _karte_ende(s, oben)
+    s.abstand(4)
 
-    s.trennlinie()
-    s.zeile("Nur Lesen. Kein Abhaken, kein Anlegen.", groesse=7.5, farbe=GRAU_HELL, abstand_danach=2)
+    s.zeile("Nur Lesen. Kein Abhaken, kein Anlegen.", groesse=7, farbe=GRAU_ZART, abstand_danach=1)
     s.zeile("Ohne Klausurergebnisse und ohne Anwesenheit — die stehen nur auf dem Rechner.",
-            groesse=7.5, farbe=GRAU_HELL)
+            groesse=7, farbe=GRAU_ZART, kuerzen_auf=BREITE - 2 * RAND, abstand_danach=6)
 
+    letzte_y = s.y
+    if letzte_y < RAND:
+        # Die Arbeitsfläche (HOEHE_ARBEITSFLAECHE) hat nicht gereicht — der
+        # Extremtest mit 42 Terminen, 15 Aufgaben und 10 Fristen nutzte
+        # weniger als die Hälfte davon, dieser Fall ist also nur ein
+        # Sicherheitsnetz. Lieber ein klarer Fehler als eine Seite, deren
+        # unterer Teil unsichtbar außerhalb des Blattes liegt.
+        raise SchnappschussFehler(
+            "Die Nutzlast ist größer, als die PDF-Vorlage vorsieht "
+            f"(HOEHE_ARBEITSFLAECHE={HOEHE_ARBEITSFLAECHE} reicht nicht). "
+            "Nicht geschrieben — sonst wäre der untere Teil der Seite "
+            "unsichtbar statt nur abgeschnitten sichtbar."
+        )
+    s.c.showPage()
     s.c.save()
-    return puffer.getvalue()
+    return _zuschneiden(puffer.getvalue(), letzte_y)
 
 
 def _text_pruefen(pdf: bytes) -> None:
     """Zweite Sicherung: den sichtbaren Text nach dem gebauten PDF durchsuchen.
 
     ``daten()`` liefert die verbotenen Felder erst gar nicht mit — diese
-    Prüfung greift also nur, falls sich das einmal ändert. PDF-Text lässt sich
-    nicht mit derselben Regex wie bei HTML aus dem Binärformat lesen; hier
-    reicht ein Blick in die reine Textschicht, die reportlab in jedem
-    ``drawString`` hinterlässt.
+    Prüfung greift also nur, falls sich das einmal ändert.
     """
-    from pypdf import PdfReader
-
     text = "\n".join(seite.extract_text() or "" for seite in PdfReader(io.BytesIO(pdf)).pages)
     for muster, was in VERBOTEN:
         treffer = re.search(muster, text, re.IGNORECASE)
@@ -258,8 +373,7 @@ def einzeln_bauen(v: Vault, ziel: Path, heute: date | None = None) -> Path:
     # Ein neuer Dateiname in iCloud Drive ist für einen Moment noch nicht in
     # dessen Verwaltung aufgenommen; das abschließende Umbenennen scheitert
     # dann mit „Operation not permitted", obwohl die Rechte stimmen. Beim
-    # zweiten Versuch geht es — dieselbe Eigenheit wie bei der HTML-Fassung
-    # (schnappschuss.py), hier für einen neuen Dateinamen erneut aufgetreten.
+    # zweiten Versuch geht es — dieselbe Eigenheit wie bei der HTML-Fassung.
     for versuch in (1, 2):
         try:
             atomar_schreiben_bytes(ziel, pdf)
