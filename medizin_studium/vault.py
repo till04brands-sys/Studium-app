@@ -87,6 +87,29 @@ def atomar_schreiben(pfad: Path, text: str) -> None:
         raise
 
 
+def atomar_schreiben_bytes(pfad: Path, daten: bytes) -> None:
+    """Wie ``atomar_schreiben``, für binäre Dateien (PDF, Bilder).
+
+    Getrennte Funktion statt eines Parameters, damit an der Aufrufstelle sofort
+    sichtbar ist, ob Text oder Binärdaten geschrieben werden — sonst müsste man
+    an jeder Stelle den Typ von ``text`` nachschlagen, um zu wissen, was passiert.
+    """
+    ordner = pfad.parent
+    rechte = pfad.stat().st_mode & 0o777 if pfad.exists() else None
+    griff, zwischen = tempfile.mkstemp(dir=ordner, prefix=".", suffix=".tmp")
+    try:
+        with os.fdopen(griff, "wb") as f:
+            f.write(daten)
+            f.flush()
+            os.fsync(f.fileno())
+        if rechte is not None:
+            os.chmod(zwischen, rechte)
+        os.replace(zwischen, pfad)
+    except BaseException:
+        Path(zwischen).unlink(missing_ok=True)
+        raise
+
+
 @dataclass
 class Eintrag:
     """Eine Datenzeile aus einer Planer-Datei."""

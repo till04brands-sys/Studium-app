@@ -20,12 +20,17 @@ Dann <http://127.0.0.1:8770> öffnen.
 
 ## Täglicher Schnappschuss
 
-`iCloud Drive → Studium → Studium unterwegs.html` ist eine Lese-Ansicht für
-unterwegs — eine einzige Datei, Stil und Schriften eingebettet, ohne
-Klausurergebnisse und ohne Anwesenheit. Über iCloud liegt sie auf dem iPhone
-in der Dateien-App; die Einzeldatei ist genau dafür da, weil deren Vorschau
-Nachbardateien nicht zuverlässig mitlädt. Sie wird dreimal täglich neu
-geschrieben:
+`iCloud Drive → Studium → Studium unterwegs.pdf` ist eine Lese-Ansicht für
+unterwegs, ohne Klausurergebnisse und ohne Anwesenheit. Über iCloud liegt sie
+auf dem iPhone in der Dateien-App. Sie wird dreimal täglich neu geschrieben:
+
+**PDF, nicht HTML.** Seit iOS 18.5 öffnet Safari keine lokale HTML-Datei mehr
+per `file://`, und die Schnellansicht führt bei HTML kein JavaScript aus — bei
+manchen Dateien verweigert sie die Vorschau ganz. Quick Look rendert PDF
+zuverlässig, seit es Quick Look gibt. `medizin_studium/schnappschuss_pdf.py`
+baut das PDF direkt aus denselben Daten wie die (weiterhin vorhandene,
+aber nicht mehr ausgelieferte) HTML-Fassung — mit `reportlab`, ohne
+Zwischenschritt über einen Browser, ohne Homebrew-Abhängigkeit.
 
 ```bash
 cp betrieb/de.tillbrands.studium-schnappschuss.plist ~/Library/LaunchAgents/

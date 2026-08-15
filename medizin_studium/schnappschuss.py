@@ -462,14 +462,27 @@ def _main(argv: list[str]) -> int:
     # macOS geschützt: Aus dem Terminal gestartet käme man hin, im täglichen
     # Hintergrundlauf nicht — und dann scheiterte ausgerechnet der Fall, für
     # den ein Rückfallpfad da ist.
-    vorgabe = _einstellung().get("datei", "~/Vault/Studium-unterwegs.html")
+    #
+    # Vorgabe-Format PDF seit dem 15.08.2026: Safari öffnet seit iOS 18.5
+    # keine lokale HTML-Datei mehr per file://, und Quick Look führt bei HTML
+    # kein JavaScript aus — bei manchen Dateien verweigert es die Vorschau
+    # sogar ganz. Quick Look rendert PDF dagegen zuverlässig.
+    pdf_modus = not ordner_modus and _einstellung().get("format", "pdf") == "pdf"
+    vorgabe = _einstellung().get(
+        "datei", "~/Vault/Studium-unterwegs.pdf" if pdf_modus else "~/Vault/Studium-unterwegs.html")
     ziel = Path(argv[1]) if len(argv) > 1 else Path(
         _einstellung().get("ordner", "~/Vault/Studium-unterwegs")
         if ordner_modus else vorgabe
     ).expanduser()
 
     try:
-        pfad = bauen(v, ziel) if ordner_modus else einzeln_bauen(v, ziel)
+        if ordner_modus:
+            pfad = bauen(v, ziel)
+        elif pdf_modus:
+            from . import schnappschuss_pdf
+            pfad = schnappschuss_pdf.einzeln_bauen(v, ziel)
+        else:
+            pfad = einzeln_bauen(v, ziel)
     except SchnappschussFehler as fehler:
         print(f"Abgebrochen: {fehler}")
         print("  Die vorhandene Datei bleibt stehen und altert sichtbar.")
